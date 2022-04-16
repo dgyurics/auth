@@ -1,0 +1,42 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+*.html
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# IDE files
+.vscode/
+*.code-workspace
+
+# Log files
+*.log
+*.txt
+
+# Secrets
+.env*.local
+
+# Next.js
+.next/
+out/
+
+# Node.js
+node_modules/
+
+# Build files
+build/
+public/
+
+# Other
+.DS_Store
+*.pem
