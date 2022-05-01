@@ -1,13 +1,12 @@
-package auth
+package main
 
 import (
   "testing"
 )
 
-// testing https://go.dev/doc/tutorial/add-a-test
-func TestRegister(t *testing.T) {
-  expected := "registering new user"
-  got := register()
+func TestLogin(t *testing.T) {
+  expected := "logging in"
+  got := login()
   if got != expected {
     t.Errorf("unexpected return value: %q", got)
   }
