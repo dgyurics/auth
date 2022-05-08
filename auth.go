@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"strings"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/lib/pq"
 )
@@ -17,11 +21,26 @@ type User struct {
 	Password string `json:"password"`
 }
 
+var ctx = context.Background()
 var pool *sql.DB
+var rdb *redis.Client
 
 func init() {
-	connStr := "user=postgres password=postgres host=localhost port=5432 dbname=auth sslmode=disable"
 	var err error
+	rdb = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	err = rdb.Set(ctx, "turd", "sandwhich", 0).Err()
+	checkErr(err)
+
+	val, err := rdb.Get(ctx, "key").Result()
+	checkErr(err)
+	fmt.Println("key", val)
+
+	connStr := "user=postgres password=postgres host=localhost port=5432 dbname=auth sslmode=disable"
 	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
 	checkErr(err)
 }
@@ -96,8 +115,13 @@ func register(c *fiber.Ctx) error {
 }
 
 func health(c *fiber.Ctx) error {
-	// ping redis
-	err := pool.Ping()
+	ctxWithTimeout, cancelFunction := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancelFunction()
+	err := rdb.Ping(ctxWithTimeout).Err()
+	if err != nil {
+		return c.Status(503).SendString("cache unavailable")
+	}
+	err = pool.Ping()
 	if err != nil {
 		return c.Status(503).SendString("database unavailable")
 	}
