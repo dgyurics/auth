@@ -3,8 +3,9 @@ package main
 import (
 	"database/sql"
 	"log"
-
 	"strconv"
+
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/lib/pq"
@@ -31,7 +32,8 @@ func main() {
 
 	app.Get("/", index)
 	app.Post("/register", register)
-	app.Get("/users", printUsers)
+	app.Post("/login", login)
+	app.Get("/users", getUsers)
 	app.Get("/health", health)
 	log.Fatalln(app.Listen(":3000"))
 }
@@ -40,7 +42,7 @@ func index(c *fiber.Ctx) error {
 	return c.SendString("Hello, World 👋!")
 }
 
-func printUsers(c *fiber.Ctx) error {
+func getUsers(c *fiber.Ctx) error {
 	rows, err := pool.Query("SELECT id, username, password FROM public.user")
 	checkErr(err)
 
@@ -53,43 +55,55 @@ func printUsers(c *fiber.Ctx) error {
 		users = append(users, u)
 	}
 	defer rows.Close()
-	// return users as json
 	return c.JSON(users)
-	//return c.SendStatus(200)
+}
+
+func login(c *fiber.Ctx) error {
+	var user User
+	err := c.BodyParser(&user)
+	checkErr(err)
+
+	sqlStatement := `SELECT id, username, password FROM public.user WHERE username = $1 AND password = $2`
+	err = pool.QueryRow(sqlStatement, user.Username, user.Password).Scan(&user.Id, &user.Username, &user.Password)
+	if err != nil {
+		handleErr(err, c)
+		return nil
+	}
+	// set cookie here
+	return c.Status(200).SendString("user logged in id:" + strconv.Itoa(user.Id))
 }
 
 func register(c *fiber.Ctx) error {
 	var user User
 	err := c.BodyParser(&user)
 	checkErr(err)
-	log.Println(user.Username, user.Password)
 
-	sqlStatement := `INSERT INTO public.user (username, password)
-		VALUES ($1, $2) RETURNING id`
-	id := -1
-	err = pool.QueryRow(sqlStatement, user.Username, user.Password).Scan(&id)
-	checkErr(err)
-
-	// get username and password
-	// insert into DB if not exists
-	return c.SendString("user registered " + strconv.Itoa(id))
-}
-
-func login() string {
-	// get username and password
-	// check exists in DB
-	// if exists return id
-	message := "logging in"
-	return message
+	sqlStatement := `INSERT INTO public.user (username, password) VALUES ($1, $2) RETURNING id`
+	err = pool.QueryRow(sqlStatement, user.Username, user.Password).Scan(&user.Id)
+	if err != nil {
+		handleErr(err, c)
+		return nil
+	}
+	return c.Status(201).SendString("user registered id:" + strconv.Itoa(user.Id))
 }
 
 func health(c *fiber.Ctx) error {
+	// ping database
+	// ping redis
 	return c.SendStatus(200)
 }
 
-func logout()          {}
-func publicResource()  {}
-func privateResource() {}
+func handleErr(err error, c *fiber.Ctx) {
+	if strings.Contains(err.Error(), "pq: duplicate key") {
+		c.Status(409).SendString(err.Error())
+	} else if strings.Contains(err.Error(), "connection refused") {
+		c.Status(503).SendString("database unavailable")
+	} else if err == sql.ErrNoRows {
+		c.Status(404).SendString(err.Error())
+	} else {
+		c.Status(500).SendString(err.Error())
+	}
+}
 
 func checkErr(err error) {
 	if err != nil {
