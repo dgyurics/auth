@@ -17,13 +17,12 @@ type User struct {
 	Password string `json:"password"`
 }
 
-var pool *sql.DB // database connection pool
+var pool *sql.DB
 
 func init() {
 	connStr := "user=postgres password=postgres host=localhost port=5432 dbname=auth sslmode=disable"
 	var err error
-	// Opening a driver typically will not attempt to connect to the database.
-	pool, err = sql.Open("postgres", connStr)
+	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
 	checkErr(err)
 }
 
@@ -35,11 +34,12 @@ func main() {
 	app.Post("/login", login)
 	app.Get("/users", getUsers)
 	app.Get("/health", health)
-	log.Fatalln(app.Listen(":3000"))
+
+	app.Listen(":3000")
 }
 
 func index(c *fiber.Ctx) error {
-	return c.SendString("Hello, World 👋!")
+	return c.SendStatus(404)
 }
 
 func getUsers(c *fiber.Ctx) error {
@@ -69,8 +69,12 @@ func login(c *fiber.Ctx) error {
 		handleErr(err, c)
 		return nil
 	}
-	// set cookie here
-	return c.Status(200).SendString("user logged in id:" + strconv.Itoa(user.Id))
+
+	c.Cookie(&fiber.Cookie{
+		Name:  "user",
+		Value: strconv.Itoa(user.Id),
+	})
+	return c.SendStatus(200)
 }
 
 func register(c *fiber.Ctx) error {
