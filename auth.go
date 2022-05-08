@@ -71,7 +71,7 @@ func login(c *fiber.Ctx) error {
 	}
 
 	c.Cookie(&fiber.Cookie{
-		Name:  "user",
+		Name:  "userId",
 		Value: strconv.Itoa(user.Id),
 	})
 	return c.SendStatus(200)
@@ -88,12 +88,19 @@ func register(c *fiber.Ctx) error {
 		handleErr(err, c)
 		return nil
 	}
-	return c.Status(201).SendString("user registered id:" + strconv.Itoa(user.Id))
+	c.Cookie(&fiber.Cookie{
+		Name:  "userId",
+		Value: strconv.Itoa(user.Id),
+	})
+	return c.SendStatus(201)
 }
 
 func health(c *fiber.Ctx) error {
-	// ping database
 	// ping redis
+	err := pool.Ping()
+	if err != nil {
+		return c.Status(503).SendString("database unavailable")
+	}
 	return c.SendStatus(200)
 }
 
