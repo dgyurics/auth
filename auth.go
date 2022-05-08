@@ -34,10 +34,10 @@ func init() {
 	})
 
 	err = rdb.Set(ctx, "turd", "sandwhich", 0).Err()
-	checkErr(err)
+	checkErr(err) // don't crash on err
 
 	val, err := rdb.Get(ctx, "key").Result()
-	checkErr(err)
+	checkErr(err) // don't crash on err
 	fmt.Println("key", val)
 
 	connStr := "user=postgres password=postgres host=localhost port=5432 dbname=auth sslmode=disable"
@@ -115,12 +115,16 @@ func register(c *fiber.Ctx) error {
 }
 
 func health(c *fiber.Ctx) error {
-	ctxWithTimeout, cancelFunction := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
-	defer cancelFunction()
-	err := rdb.Ping(ctxWithTimeout).Err()
+	ctx, cancelCtx := context.WithDeadline(ctx, time.Now().Add(1000*time.Millisecond))
+	defer cancelCtx()
+
+	// ping cache
+	err := rdb.Ping(ctx).Err()
 	if err != nil {
 		return c.Status(503).SendString("cache unavailable")
 	}
+
+	// ping db
 	err = pool.Ping()
 	if err != nil {
 		return c.Status(503).SendString("database unavailable")
