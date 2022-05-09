@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"log"
-	"strconv"
 	"time"
 
 	"strings"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -77,9 +77,6 @@ func login(c *fiber.Ctx) error {
 		handleErr(err, c)
 		return nil
 	}
-	// generate session id
-	// user.Password = nil
-	// store session id in redis, with user account
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(user.Password))
 	if err != nil {
@@ -87,9 +84,16 @@ func login(c *fiber.Ctx) error {
 		return nil
 	}
 
+	sessionId := uuid.New().String()
+	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
+	if err != nil {
+		handleErr(err, c)
+		return nil
+	}
+
 	c.Cookie(&fiber.Cookie{
-		Name:  "userId",
-		Value: strconv.Itoa(user.Id),
+		Name:  "session",
+		Value: sessionId,
 	})
 	return c.SendStatus(200)
 }
@@ -111,13 +115,19 @@ func register(c *fiber.Ctx) error {
 		handleErr(err, c)
 		return nil
 	}
-	// generate session id
-	// user.Password = nil
-	// store session id in redis, with user account
+
+	sessionId := uuid.New().String()
+	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
+	if err != nil {
+		handleErr(err, c)
+		return nil
+	}
+
 	c.Cookie(&fiber.Cookie{
-		Name:  "userId",
-		Value: strconv.Itoa(user.Id),
+		Name:  "session",
+		Value: sessionId,
 	})
+
 	return c.SendStatus(201)
 }
 
