@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
 	"time"
 
 	"strings"
@@ -14,6 +13,16 @@ import (
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// tasks
+// move environment variables to .env
+// create tests for login, register, get users, health
+// improve error handling function
+// add multi role support
+// add registration code option
+// add logging
+// create runnable dockerfile
+// deploy via kubernetes
 
 type User struct {
 	Id       int    `json:"id"`
@@ -50,15 +59,14 @@ func main() {
 }
 
 func getUsers(c *fiber.Ctx) error {
-	rows, err := pool.Query("SELECT id, username, password FROM public.user")
+	rows, err := pool.Query("SELECT id, username FROM public.user")
 	checkErr(err)
 
 	var users []*User
 	for rows.Next() {
 		u := new(User)
-		err = rows.Scan(&u.Id, &u.Username, &u.Password)
+		err = rows.Scan(&u.Id, &u.Username)
 		checkErr(err)
-		log.Println(u.Id, u.Username, u.Password)
 		users = append(users, u)
 	}
 	defer rows.Close()
