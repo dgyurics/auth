@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
-	"strings"
+	"github.com/joho/godotenv"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
@@ -15,7 +18,6 @@ import (
 )
 
 // tasks
-// move environment variables to .env
 // create tests for login, register, get users, health
 // improve error handling function
 // add multi role support
@@ -36,13 +38,23 @@ var rdb *redis.Client
 
 func init() {
 	var err error
+	err = godotenv.Load()
+	checkErr(err)
+
+	getEnv := os.Getenv
+
+	db, _ := strconv.Atoi(getEnv("REDIS_DB"))
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr:     getEnv("REDIS_HOST"),
+		Password: getEnv("REDIS_PASSWORD"), // no password set
+		DB:       db,                       // use default DB
 	})
 
-	connStr := "user=postgres password=postgres host=localhost port=5432 dbname=auth sslmode=disable"
+	connStr := "user=" + getEnv("PG_USER") +
+		" password=" + getEnv("PG_PASSWORD") +
+		" host=" + getEnv("PG_HOST") +
+		" dbname=" + getEnv("PG_DB") +
+		" sslmode=" + getEnv("PG_SSLMODE")
 	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
 	checkErr(err)
 }
