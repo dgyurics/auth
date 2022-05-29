@@ -1,4 +1,19 @@
 services:
+  # application:
+  #   image: auth-app
+  #   build:
+  #     context: ./
+  #   container_name: auth-app
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   links:
+  #     - postgres
+  #     - redis
+  #   command: ["app"]
+
   postgres:
     image: postgres:12.9
     container_name: postgres

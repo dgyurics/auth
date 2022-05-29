@@ -165,7 +165,7 @@ func health(c *fiber.Ctx) error {
 	// ping db
 	err = pool.Ping()
 	if err != nil {
-		return c.Status(503).SendString("database unavailable")
+		return c.Status(503).SendString(err.Error())
 	}
 	return c.SendStatus(200)
 }
