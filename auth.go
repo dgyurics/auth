@@ -46,7 +46,7 @@ func init() {
 
 	db, _ := strconv.Atoi(getEnv("REDIS_DB"))
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     getEnv("REDIS_HOST"),
+		Addr:     getEnv("REDIS_HOST") + ":" + getEnv("REDIS_PORT"),
 		Password: getEnv("REDIS_PASSWORD"), // no password set
 		DB:       db,                       // use default DB
 	})
@@ -54,6 +54,7 @@ func init() {
 	connStr := "user=" + getEnv("PG_USER") +
 		" password=" + getEnv("PG_PASSWORD") +
 		" host=" + getEnv("PG_HOST") +
+		" port=" + getEnv("PG_PORT") +
 		" dbname=" + getEnv("PG_DB") +
 		" sslmode=" + getEnv("PG_SSLMODE")
 	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
@@ -62,7 +63,6 @@ func init() {
 
 func main() {
 	app := fiber.New()
-
 	app.Post("/register", register)
 	app.Post("/login", login)
 	app.Get("/users", getUsers)
@@ -165,7 +165,7 @@ func health(c *fiber.Ctx) error {
 	// ping db
 	err = pool.Ping()
 	if err != nil {
-		return c.Status(503).SendString(err.Error())
+		return c.Status(503).SendString("database unavailable")
 	}
 	return c.SendStatus(200)
 }
