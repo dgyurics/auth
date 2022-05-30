@@ -24,7 +24,6 @@ import (
 // add multi role support
 // add registration code option
 // add logging
-// create runnable dockerfile
 // deploy via kubernetes
 
 type User struct {
