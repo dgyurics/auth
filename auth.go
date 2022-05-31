@@ -12,19 +12,21 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // tasks
-// create tests for login, register, get users, health
 // improve error handling function
 // refactor code
 // add multi role support
 // add registration code option
 // add logging
+// create tests for login, register, get users, health
 // deploy via kubernetes
+// switch from fiber to gin
 
 type User struct {
 	Id       int    `json:"id"`
@@ -37,8 +39,7 @@ var pool *sql.DB
 var rdb *redis.Client
 
 func init() {
-	var err error
-	err = godotenv.Load()
+	var err = godotenv.Load()
 	checkErr(err)
 
 	getEnv := os.Getenv
@@ -56,18 +57,20 @@ func init() {
 		" port=" + getEnv("PG_PORT") +
 		" dbname=" + getEnv("PG_DB") +
 		" sslmode=" + getEnv("PG_SSLMODE")
-	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
-	checkErr(err)
+	pool, _ = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
 }
 
 func main() {
 	app := fiber.New()
+
+	app.Use(recover.New())
+
 	app.Post("/register", register)
 	app.Post("/login", login)
 	app.Get("/users", getUsers)
 	app.Get("/health", health)
 
-	app.Listen(":3000")
+	app.Listen("127.0.0.1:3000")
 }
 
 func getUsers(c *fiber.Ctx) error {
@@ -94,21 +97,18 @@ func login(c *fiber.Ctx) error {
 	var hashedPassword []byte
 	err = pool.QueryRow(sqlStatement, user.Username).Scan(&user.Id, &user.Username, &hashedPassword)
 	if err != nil {
-		handleErr(err, c)
-		return nil
+		return handleErr(err, nil, nil)
 	}
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(user.Password))
 	if err != nil {
-		handleErr(err, c)
-		return nil
+		return handleErr(err)
 	}
 
 	sessionId := uuid.New().String()
 	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
 	if err != nil {
-		handleErr(err, c)
-		return nil
+		handleErr(err)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -125,22 +125,20 @@ func register(c *fiber.Ctx) error {
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
-		handleErr(err, c)
+		handleErr(err)
 		return nil
 	}
 
 	sqlStatement := `INSERT INTO public.user (username, password) VALUES ($1, $2) RETURNING id, username`
 	err = pool.QueryRow(sqlStatement, user.Username, hashedPass).Scan(&user.Id, &user.Username)
 	if err != nil {
-		handleErr(err, c)
-		return nil
+		return handleErr(err)
 	}
 
 	sessionId := uuid.New().String()
 	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
 	if err != nil {
-		handleErr(err, c)
-		return nil
+		return handleErr(err)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -158,29 +156,30 @@ func health(c *fiber.Ctx) error {
 	// ping cache
 	err := rdb.Ping(ctx).Err()
 	if err != nil {
-		return c.Status(503).SendString("cache unavailable")
+		return fiber.NewError(fiber.StatusServiceUnavailable, "redis unavailable")
 	}
 
 	// ping db
 	err = pool.Ping()
 	if err != nil {
-		return c.Status(503).SendString("database unavailable")
+		return fiber.NewError(fiber.StatusServiceUnavailable, "postgresql unavailable")
 	}
 	return c.SendStatus(200)
 }
 
-func handleErr(err error, c *fiber.Ctx) {
+func handleErr(err error, errCode int, errMsgOverride string) error {
 	errMsg := err.Error()
+	// TODO log error
 	if strings.Contains(errMsg, "pq: duplicate key") {
-		c.Status(409).SendString(errMsg)
+		return fiber.NewError(409, errMsg)
 	} else if strings.Contains(errMsg, "not the hash") {
-		c.Status(401).SendString(errMsg)
+		return fiber.NewError(401, errMsg)
 	} else if strings.Contains(errMsg, "connection refused") {
-		c.Status(503).SendString("database unavailable")
+		return fiber.NewError(503, errMsg)
 	} else if err == sql.ErrNoRows {
-		c.Status(404).SendString(errMsg)
+		return fiber.NewError(404, errMsg)
 	} else {
-		c.Status(500).SendString(errMsg)
+		return fiber.NewError(500, errMsg)
 	}
 }
 
