@@ -57,7 +57,14 @@ func init() {
 		" port=" + getEnv("PG_PORT") +
 		" dbname=" + getEnv("PG_DB") +
 		" sslmode=" + getEnv("PG_SSLMODE")
-	pool, _ = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
+	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
+	checkErr(err)
+	initTables()
+}
+
+func initTables() {
+	_, err := pool.Exec("CREATE TABLE IF NOT EXISTS public.user (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE, password VARCHAR(100) NOT NULL)")
+	checkErr(err)
 }
 
 func main() {
@@ -97,7 +104,7 @@ func login(c *fiber.Ctx) error {
 	var hashedPassword []byte
 	err = pool.QueryRow(sqlStatement, user.Username).Scan(&user.Id, &user.Username, &hashedPassword)
 	if err != nil {
-		return handleErr(err, nil, nil)
+		return handleErr(err)
 	}
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(user.Password))
@@ -106,9 +113,9 @@ func login(c *fiber.Ctx) error {
 	}
 
 	sessionId := uuid.New().String()
-	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
+	err = rdb.Set(ctx, sessionId, user.Id, 0).Err() // set ttl
 	if err != nil {
-		handleErr(err)
+		return handleErr(err)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -125,8 +132,7 @@ func register(c *fiber.Ctx) error {
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
-		handleErr(err)
-		return nil
+		return handleErr(err)
 	}
 
 	sqlStatement := `INSERT INTO public.user (username, password) VALUES ($1, $2) RETURNING id, username`
@@ -136,7 +142,7 @@ func register(c *fiber.Ctx) error {
 	}
 
 	sessionId := uuid.New().String()
-	err = rdb.Set(ctx, sessionId, user.Id, 0).Err()
+	err = rdb.Set(ctx, sessionId, user.Id, 0).Err() // set ttl
 	if err != nil {
 		return handleErr(err)
 	}
@@ -156,26 +162,27 @@ func health(c *fiber.Ctx) error {
 	// ping cache
 	err := rdb.Ping(ctx).Err()
 	if err != nil {
-		return fiber.NewError(fiber.StatusServiceUnavailable, "redis unavailable")
+		return handleErr(err)
 	}
 
 	// ping db
 	err = pool.Ping()
 	if err != nil {
-		return fiber.NewError(fiber.StatusServiceUnavailable, "postgresql unavailable")
+		return handleErr(err)
 	}
 	return c.SendStatus(200)
 }
 
-func handleErr(err error, errCode int, errMsgOverride string) error {
+func handleErr(err error) error {
 	errMsg := err.Error()
-	// TODO log error
 	if strings.Contains(errMsg, "pq: duplicate key") {
-		return fiber.NewError(409, errMsg)
+		return fiber.NewError(409)
 	} else if strings.Contains(errMsg, "not the hash") {
 		return fiber.NewError(401, errMsg)
 	} else if strings.Contains(errMsg, "connection refused") {
-		return fiber.NewError(503, errMsg)
+		return fiber.NewError(503, "error connecting to redis cache")
+	} else if strings.Contains(errMsg, "bad connection") {
+		return fiber.NewError(503, "error connecting to postgresql db")
 	} else if err == sql.ErrNoRows {
 		return fiber.NewError(404, errMsg)
 	} else {
