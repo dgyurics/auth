@@ -19,11 +19,10 @@ import (
 )
 
 // tasks
-// improve error handling function
-// refactor code
 // add multi role support
 // add registration code option
 // add logging
+// secure get users endpoint
 // create tests for login, register, get users, health
 // deploy via kubernetes
 // switch from fiber to gin
