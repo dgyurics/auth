@@ -18,3 +18,6 @@ auth
 # IDE files
 .vscode/
 *.code-workspace
+
+# Log files
+*.log

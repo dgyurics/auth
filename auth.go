@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -21,8 +22,6 @@ import (
 )
 
 // tasks
-// add registration code option
-// add logging
 // create tests for login, register, get users, health
 // deploy via kubernetes
 // switch from fiber to gin
@@ -45,9 +44,28 @@ var ctx = context.Background()
 var pool *sql.DB
 var rdb *redis.Client
 
+var (
+	WarningLogger *log.Logger
+	InfoLogger    *log.Logger
+	ErrorLogger   *log.Logger
+)
+
+func initLogging() {
+	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	InfoLogger = log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
 func init() {
 	var err = godotenv.Load()
 	checkErr(err)
+
+	go initLogging()
 
 	getEnv := os.Getenv
 
@@ -248,9 +266,8 @@ func register(c *fiber.Ctx) error {
 	return c.SendStatus(201)
 }
 
-var options = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
-
 func generateRegistrationCode(c *fiber.Ctx) error {
+	var options = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
 	// verify user has active session
 	userId, err := authenticate(c)
 	if err != nil {
@@ -281,9 +298,12 @@ func generateRegistrationCode(c *fiber.Ctx) error {
 	return c.SendString(code)
 }
 
-// removes expired registration codes
 func removeExpiredCodes() {
-	// TODO
+	sqlStatement := `DELETE FROM public.registration_code WHERE expiration < NOW()`
+	_, err := pool.Exec(sqlStatement)
+	if err != nil {
+		ErrorLogger.Println(err.Error())
+	}
 }
 
 func health(c *fiber.Ctx) error {
@@ -305,8 +325,13 @@ func health(c *fiber.Ctx) error {
 }
 
 // FIXME
+// refactor
+// add ip address to log
 func handleErr(err error) error {
 	errMsg := err.Error()
+
+	InfoLogger.Println(errMsg)
+
 	if strings.Contains(errMsg, "pq: duplicate key") {
 		return fiber.NewError(409)
 	} else if strings.Contains(errMsg, "not the hash") {
@@ -315,21 +340,27 @@ func handleErr(err error) error {
 		return fiber.NewError(401, errMsg)
 	} else if strings.Contains(errMsg, "forbidden") {
 		return fiber.NewError(403, errMsg)
-	} else if strings.Contains(errMsg, "missing registration code") {
+	} else if strings.Contains(
+		errMsg, "missing registration code") ||
+		strings.Contains(errMsg, "invalid registration code") {
 		return fiber.NewError(400, errMsg)
 	} else if strings.Contains(errMsg, "connection refused") {
+		ErrorLogger.Println("503-STATUS-CODE:" + errMsg)
 		return fiber.NewError(503, "error connecting to redis cache")
 	} else if strings.Contains(errMsg, "bad connection") {
+		ErrorLogger.Println("503-STATUS-CODE:" + errMsg)
 		return fiber.NewError(503, "error connecting to postgresql db")
 	} else if err == sql.ErrNoRows {
 		return fiber.NewError(404, errMsg)
 	} else {
+		ErrorLogger.Println("500-STATUS-CODE:" + errMsg)
 		return fiber.NewError(500, errMsg)
 	}
 }
 
 func checkErr(err error) {
 	if err != nil {
+		ErrorLogger.Println(err.Error())
 		panic(err)
 	}
 }
