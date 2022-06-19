@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +36,10 @@ type User struct {
 const ADMIN_ROLE = "admin"
 const USER_ROLE = "user"
 const GUEST_ROLE = "guest"
+
+const HOST = "127.0.0.1:3000"
+
+const REGISTRATION_CODE_REQUIRED = true
 
 var ctx = context.Background()
 var pool *sql.DB
@@ -85,14 +90,17 @@ func initTables() {
 func main() {
 	app := fiber.New()
 
+	rand.Seed(time.Now().UnixNano())
+
 	app.Use(recover.New())
 
 	app.Post("/register", register)
 	app.Post("/login", login)
+	app.Post("/registration-code", generateRegistrationCode)
 	app.Get("/users", getUsers)
 	app.Get("/health", health)
 
-	app.Listen("127.0.0.1:3000")
+	app.Listen(HOST)
 }
 
 // verify cookie exists + session is valid
@@ -212,6 +220,31 @@ func register(c *fiber.Ctx) error {
 	})
 
 	return c.SendStatus(201)
+}
+
+var options = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
+
+func generateRegistrationCode(c *fiber.Ctx) error {
+	// verify user has active session
+	// userId, err := authenticate(c)
+	// if err != nil {
+	// 	return handleErr(err)
+	// }
+	// // verify user has admin role
+	// err = authorize(userId, ADMIN_ROLE)
+	// if err != nil {
+	// 	return handleErr(err)
+	// }
+
+	// generate unique registration code
+	b := make([]rune, 5)
+	for i := range b {
+		b[i] = options[rand.Intn(len(options))]
+	}
+
+	// insert code into SQL with ttl
+
+	return c.SendString(string(b))
 }
 
 func health(c *fiber.Ctx) error {
