@@ -85,6 +85,12 @@ func initTables() {
 		"role role_enum NOT NULL," +
 		"UNIQUE (user_id, role))")
 	checkErr(err)
+
+	_, err = pool.Exec("CREATE TABLE IF NOT EXISTS public.registration_code (" +
+		"code char(5) NOT NULL," +
+		"expiration TIMESTAMP," +
+		"UNIQUE (code))")
+	checkErr(err)
 }
 
 func main() {
@@ -186,8 +192,28 @@ func login(c *fiber.Ctx) error {
 
 func register(c *fiber.Ctx) error {
 	var user User
+	var registrationCode = c.Query("code", "nil")
 	err := c.BodyParser(&user)
 	checkErr(err)
+
+	// verify registration code
+	if REGISTRATION_CODE_REQUIRED {
+		if registrationCode == "nil" {
+			return handleErr(errors.New("missing registration code"))
+		}
+		sqlStatement := `DELETE FROM public.registration_code WHERE code = $1 AND expiration > NOW()`
+		res, err := pool.Exec(sqlStatement, registrationCode)
+		if err != nil {
+			return handleErr(err)
+		}
+		count, err := res.RowsAffected()
+		if err != nil {
+			return handleErr(err)
+		}
+		if count == 0 {
+			return handleErr(errors.New("invalid registration code"))
+		}
+	}
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
@@ -226,15 +252,17 @@ var options = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
 
 func generateRegistrationCode(c *fiber.Ctx) error {
 	// verify user has active session
-	// userId, err := authenticate(c)
-	// if err != nil {
-	// 	return handleErr(err)
-	// }
-	// // verify user has admin role
-	// err = authorize(userId, ADMIN_ROLE)
-	// if err != nil {
-	// 	return handleErr(err)
-	// }
+	userId, err := authenticate(c)
+	if err != nil {
+		return handleErr(err)
+	}
+	// verify user has admin role
+	err = authorize(userId, ADMIN_ROLE)
+	if err != nil {
+		return handleErr(err)
+	}
+
+	go removeExpiredCodes()
 
 	// generate unique registration code
 	b := make([]rune, 5)
@@ -242,9 +270,20 @@ func generateRegistrationCode(c *fiber.Ctx) error {
 		b[i] = options[rand.Intn(len(options))]
 	}
 
-	// insert code into SQL with ttl
+	// insert code into SQL with 30 minute expiration
+	code := string(b)
+	sqlStatement := `INSERT INTO public.registration_code (code, expiration) VALUES ($1, $2)`
+	_, err = pool.Exec(sqlStatement, code, time.Now().Add(time.Minute*30))
+	if err != nil {
+		return handleErr(err)
+	}
 
-	return c.SendString(string(b))
+	return c.SendString(code)
+}
+
+// removes expired registration codes
+func removeExpiredCodes() {
+	// TODO
 }
 
 func health(c *fiber.Ctx) error {
@@ -265,6 +304,7 @@ func health(c *fiber.Ctx) error {
 	return c.SendStatus(200)
 }
 
+// FIXME
 func handleErr(err error) error {
 	errMsg := err.Error()
 	if strings.Contains(errMsg, "pq: duplicate key") {
@@ -275,6 +315,8 @@ func handleErr(err error) error {
 		return fiber.NewError(401, errMsg)
 	} else if strings.Contains(errMsg, "forbidden") {
 		return fiber.NewError(403, errMsg)
+	} else if strings.Contains(errMsg, "missing registration code") {
+		return fiber.NewError(400, errMsg)
 	} else if strings.Contains(errMsg, "connection refused") {
 		return fiber.NewError(503, "error connecting to redis cache")
 	} else if strings.Contains(errMsg, "bad connection") {
