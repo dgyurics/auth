@@ -22,9 +22,9 @@ import (
 )
 
 // tasks
+// switch from fiber to gin
 // create tests for login, register, get users, health
 // deploy via kubernetes
-// switch from fiber to gin
 
 type User struct {
 	Id       int    `json:"id"`
@@ -37,8 +37,6 @@ const USER_ROLE = "user"
 const GUEST_ROLE = "guest"
 
 const HOST = "127.0.0.1:3000"
-
-const REGISTRATION_CODE_REQUIRED = true
 
 var ctx = context.Background()
 var pool *sql.DB
@@ -69,6 +67,8 @@ func init() {
 
 	getEnv := os.Getenv
 
+	verifyEnvirnmentVariables()
+
 	db, _ := strconv.Atoi(getEnv("REDIS_DB"))
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     getEnv("REDIS_HOST") + ":" + getEnv("REDIS_PORT"),
@@ -85,6 +85,10 @@ func init() {
 	pool, err = sql.Open("postgres", connStr) // opens a connection pool, safe for use by multiple goroutines
 	checkErr(err)
 	initTables()
+}
+
+// TODO verify all required environment variables exist
+func verifyEnvirnmentVariables() {
 }
 
 // TODO wrap into single transaction
@@ -215,6 +219,7 @@ func register(c *fiber.Ctx) error {
 	checkErr(err)
 
 	// verify registration code
+	REGISTRATION_CODE_REQUIRED, _ := strconv.ParseBool(os.Getenv("REGISTRATION_CODE_REQUIRED"))
 	if REGISTRATION_CODE_REQUIRED {
 		if registrationCode == "nil" {
 			return handleErr(errors.New("missing registration code"))
