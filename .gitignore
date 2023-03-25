@@ -18,6 +18,7 @@ auth
 # IDE files
 .vscode/
 *.code-workspace
+*.DS_Store
 
 # Log files
 *.log

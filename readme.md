@@ -1,3 +1,9 @@
 ## What is this? ##
 
-A standalone service for authentication and authorization.
+Bare bones register & login application interface.
+It is simple, fault-tolerant, and distributed.
+Minimal configuration & setup necessary.
+
+## How to use ##
+
+Coming soon
