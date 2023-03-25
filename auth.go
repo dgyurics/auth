@@ -13,6 +13,8 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -24,7 +26,7 @@ import (
 // tasks
 // switch from fiber to gin
 // create tests for login, register, get users, health
-// deploy via kubernetes
+//
 
 type User struct {
 	Id       int    `json:"id"`
@@ -36,7 +38,8 @@ const ADMIN_ROLE = "admin"
 const USER_ROLE = "user"
 const GUEST_ROLE = "guest"
 
-const HOST = "127.0.0.1:3000"
+const HOST = "127.0.0.1"
+const PORT = "3000"
 
 var ctx = context.Background()
 var pool *sql.DB
@@ -118,17 +121,26 @@ func initTables() {
 func main() {
 	app := fiber.New()
 
+	r := gin.Default()
+	r.Use(errorHandler)
+	r.POST("/register", register)
+	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
 	rand.Seed(time.Now().UnixNano())
 
 	app.Use(recover.New())
 
-	app.Post("/register", register)
+	// app.Post("/register", register)
 	app.Post("/login", login)
 	app.Post("/registration-code", generateRegistrationCode)
 	app.Get("/users", getUsers)
 	app.Get("/health", health)
 
-	app.Listen(HOST)
+	addr := HOST
+	if PORT != "80" {
+		addr = addr + ":" + PORT
+	}
+	app.Listen(addr)
 }
 
 // verify cookie exists + session is valid
@@ -212,35 +224,37 @@ func login(c *fiber.Ctx) error {
 	return c.SendStatus(200)
 }
 
-func register(c *fiber.Ctx) error {
+func register(c *gin.Context) {
 	var user User
-	var registrationCode = c.Query("code", "nil")
-	err := c.BodyParser(&user)
+	var registrationCode = c.Query("code")
+	err := c.BindJSON(&user)
 	checkErr(err)
 
 	// verify registration code
 	REGISTRATION_CODE_REQUIRED, _ := strconv.ParseBool(os.Getenv("REGISTRATION_CODE_REQUIRED"))
 	if REGISTRATION_CODE_REQUIRED {
 		if registrationCode == "nil" {
-			return handleErr(errors.New("missing registration code"))
+			c.AbortWithError(500, errors.New("registration code missing"))
+			return
 		}
 		sqlStatement := `DELETE FROM public.registration_code WHERE code = $1 AND expiration > NOW()`
 		res, err := pool.Exec(sqlStatement, registrationCode)
 		if err != nil {
-			return handleErr(err)
+			c.Error(err)
 		}
 		count, err := res.RowsAffected()
 		if err != nil {
-			return handleErr(err)
+			c.Error(err)
 		}
 		if count == 0 {
-			return handleErr(errors.New("invalid registration code"))
+			c.Error(err)
 		}
 	}
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
-		return handleErr(err)
+		c.AbortWithError(500, err)
+		return
 	}
 
 	// FIXME wrap inserts into single transaction
@@ -248,27 +262,26 @@ func register(c *fiber.Ctx) error {
 	sqlStatement := `INSERT INTO public.user (username, password) VALUES ($1, $2) RETURNING id, username`
 	err = pool.QueryRow(sqlStatement, user.Username, hashedPass).Scan(&user.Id, &user.Username)
 	if err != nil {
-		return handleErr(err)
+		c.AbortWithError(409, err)
+		return
 	}
 
 	sqlStatement = `INSERT INTO public.role (user_id, role) VALUES ($1, $2)`
 	_, err = pool.Exec(sqlStatement, user.Id, "user")
 	if err != nil {
-		return handleErr(err)
+		c.AbortWithError(500, err)
+		return
 	}
 
 	sessionId := uuid.New().String()
 	err = rdb.Set(ctx, sessionId, user.Id, 0).Err() // set ttl
 	if err != nil {
-		return handleErr(err)
+		c.AbortWithError(500, err)
+		return
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:  "session",
-		Value: sessionId,
-	})
-
-	return c.SendStatus(201)
+	c.SetCookie("session", sessionId, -1, "/", HOST, false, false) // FIXME
+	c.Status(201)
 }
 
 func generateRegistrationCode(c *fiber.Ctx) error {
@@ -327,6 +340,21 @@ func health(c *fiber.Ctx) error {
 		return handleErr(err)
 	}
 	return c.SendStatus(200)
+}
+
+func errorHandler(c *gin.Context) {
+	c.Next()
+
+	// for _, err := range c.Errors {
+	// 	switch err.Err {
+	// 	case "ErrNotFound":
+	// 		c.JSON(-1, gin.H{"error": ErrNotFound.Error()})
+	// 	}
+	// }
+
+	//c.Status(http.StatusInternalServerError)
+	// status -1 doesn't overwrite existing status code
+	c.Status(-1)
 }
 
 // FIXME

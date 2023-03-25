@@ -21,3 +21,4 @@ auth
 
 # Log files
 *.log
+*.txt
