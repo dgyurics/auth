@@ -23,3 +23,6 @@ auth
 # Log files
 *.log
 *.txt
+
+# Secrets
+*.env
