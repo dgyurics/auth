@@ -1,23 +1,21 @@
+version: "3.9"
+
 services:
   auth:
     image: auth
     build:
-      context: ./
-    container_name: auth
+      context: .
+    container_name: auth_service
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - PG_HOST=postgres
-      - PG_PORT=5432
+      - PORT=8080
     ports:
-      - "3000:3000"
+      - "3000:8080"
     links:
       - postgres
       - redis
     depends_on:
       - postgres
       - redis
-    command: ["app"]
 
   postgres:
     image: postgres:12.9
