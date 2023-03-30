@@ -30,6 +30,8 @@ func NewHttpServer(addr string) *http.Server {
 	initMiddleware(r)
 
 	handler := NewHttpHandler()
+
+	// TODO pass context in-order to fail fast
 	r.Get("/health", handler.healthCheck)
 	r.Get("/session", handler.session)
 	r.Post("/login", handler.authentication)
