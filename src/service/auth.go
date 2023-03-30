@@ -1,40 +1,52 @@
 package service
 
 import (
-	"github.com/google/uuid"
+	"auth/src/model"
+	repo "auth/src/repository"
 )
 
-type User struct {
-	Id       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Password string    `json:"password"`
-}
-
-type UserService interface {
-	Login(username string, password string) error
-	Create(username string, password string) error
+type AuthService interface {
+	Login(username string, password string) (model.User, error)
+	Create(username string, password string) (model.User, error)
 	Logout(username string) error
 	Remove(username string) error
+	Exists(username string) bool
 }
 
-func (usr *User) Create() error {
+type authService struct {
+	userRepository repo.UserRepository
+}
+
+func NewAuthService(c *repo.DbClient) AuthService {
+	return &authService{
+		userRepository: repo.NewUserRepository(c),
+	}
+}
+
+func (s *authService) Exists(username string) bool {
+	// TODO
+	// verify username is unique
+	return false
+}
+
+func (s *authService) Create(username string, password string) (usr model.User, err error) {
 	// TODO
 	// verify username is unique
 	// generate Id
 	// salt + encrypt password
 	// store event in db
-	return nil
+	return usr, nil
 }
 
-func (usr *User) Login() error {
+func (s *authService) Login(username string, password string) (usr model.User, err error) {
 	// TODO
 	// verify username and password match
 	// store event in db
 	// create session
-	return nil
+	return usr, nil
 }
 
-func (usr *User) Logout() error {
+func (s *authService) Logout(username string) error {
 	// TODO
 	// verify session is valid
 	// store event in db
@@ -42,7 +54,7 @@ func (usr *User) Logout() error {
 	return nil
 }
 
-func (usr *User) Remove() error {
+func (s *authService) Remove(username string) error {
 	// TODO
 	// verify session is valid
 	// store event in db

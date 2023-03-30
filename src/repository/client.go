@@ -1,4 +1,4 @@
-package database
+package repository
 
 import (
 	"database/sql"
@@ -6,17 +6,16 @@ import (
 	"os"
 )
 
-type SqlClient interface{}
-
-type dbClient struct {
+// dbClient is a wrapper around sql.DB
+type DbClient struct {
 	connPool *sql.DB // safe for multiple goroutines
 }
 
-func NewDBClient() *dbClient {
-	return &dbClient{}
+func NewDBClient() *DbClient {
+	return &DbClient{}
 }
 
-func (c *dbClient) Connect() {
+func (c *DbClient) Connect() {
 	connStr := os.Getenv("PG_CONN_STR")
 	if connStr == "" {
 		log.Fatal("PG_CONN_STR not set")
@@ -33,6 +32,6 @@ func (c *dbClient) Connect() {
 // The returned DB is safe for concurrent use by multiple goroutines and maintains
 // its own pool of idle connections. Thus, the Open function should be called just once.
 // It is rarely necessary to close a DB.
-func (c *dbClient) Close() {
+func (c *DbClient) Close() {
 	c.connPool.Close()
 }
