@@ -7,11 +7,11 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(usr *model.User) error
-	GetUserByUsername(username string) (*model.User, error)
+	CreateUser(ctx context.Context, usr *model.User) error
+	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 	RemoveUserByUsername(username string) error
 	UpdateUser(usr *model.User) (*model.User, error)
-	Exists(username string) bool
+	Exists(ctx context.Context, username string) bool
 }
 
 type userRepository struct {
@@ -27,16 +27,17 @@ const USER_LOGIN_TYPE = "user_login"
 const USER_LOGOUT_TYPE = "user_logout"
 const USER_DELETE_TYPE = "user_delete"
 
-func (r *userRepository) Exists(username string) bool {
-	if _, err := r.GetUserByUsername(username); err != nil {
+func (r *userRepository) Exists(ctx context.Context, username string) bool {
+	if _, err := r.GetUserByUsername(ctx, username); err != nil {
 		return false
 	}
 	return true
 }
 
-func (r *userRepository) GetUserByUsername(username string) (usr *model.User, err error) {
+func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (usr *model.User, err error) {
 	tmp := model.User{}
-	err = r.c.connPool.QueryRow("SELECT id, username, password FROM auth.user WHERE username = $1", username).Scan(&tmp.Id, &tmp.Username, &tmp.Password)
+	err = r.c.connPool.QueryRowContext(ctx, "SELECT id, username, password FROM auth.user WHERE username = $1", username).Scan(&tmp.Id, &tmp.Username, &tmp.Password)
+
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +57,8 @@ func (r *userRepository) UpdateUser(usr *model.User) (updatedUsr *model.User, er
 }
 
 // FIXME: wrap in single transaction
-func (r *userRepository) CreateUser(usr *model.User) error {
+func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error {
 	connPool := r.c.connPool
-	ctx := context.TODO() // FIXME: placeholder while I wire up request context
 	tx, err := connPool.BeginTx(ctx, nil)
 	if err != nil {
 		return err

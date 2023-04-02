@@ -3,6 +3,7 @@ package service
 import (
 	"auth/src/model"
 	repo "auth/src/repository"
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
@@ -11,10 +12,10 @@ import (
 
 type AuthService interface {
 	Login(username string, password string) (*model.User, error)
-	Create(username string, password []byte) (*model.User, error)
+	Create(ctx context.Context, username string, password []byte) (*model.User, error)
 	Logout(username string) error
 	Remove(username string) error
-	Exists(username string) bool
+	Exists(ctx context.Context, username string) bool
 }
 
 type authService struct {
@@ -27,12 +28,12 @@ func NewAuthService(c *repo.DbClient) AuthService {
 	}
 }
 
-func (s *authService) Exists(username string) bool {
-	return s.userRepository.Exists(username)
+func (s *authService) Exists(ctx context.Context, username string) bool {
+	return s.userRepository.Exists(ctx, username)
 }
 
 // Assumes username is not taken
-func (s *authService) Create(username string, password []byte) (*model.User, error) {
+func (s *authService) Create(ctx context.Context, username string, password []byte) (*model.User, error) {
 	if len(password) > 72 {
 		return nil, errors.New("password too long")
 	}
@@ -47,7 +48,7 @@ func (s *authService) Create(username string, password []byte) (*model.User, err
 		Username: username,
 		Password: string(hashedPass),
 	}
-	if err := s.userRepository.CreateUser(newUsr); err != nil {
+	if err := s.userRepository.CreateUser(ctx, newUsr); err != nil {
 		return nil, err
 	}
 	return newUsr, nil

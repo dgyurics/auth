@@ -42,13 +42,15 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	// ensure username is unique
-	if s.authService.Exists(user.Username) {
+	ctx := r.Context()
+	if s.authService.Exists(ctx, user.Username) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
 	}
 	// // create user
-	user, err := s.authService.Create(user.Username, password)
+	user, err := s.authService.Create(ctx, user.Username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
