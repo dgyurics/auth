@@ -2,6 +2,7 @@ package repository
 
 import (
 	"auth/src/model"
+	"encoding/json"
 )
 
 type UserRepository interface {
@@ -56,16 +57,36 @@ func (r *userRepository) UpdateUser(usr *model.User) (updatedUsr *model.User, er
 // FIXME: wrap in single transaction
 func (r *userRepository) CreateUser(usr *model.User) error {
 	connPool := r.c.connPool
-	// row := r.c.connPool.QueryRow("INSERT INTO auth.events (uuid, type, body) VALUES ($1, $2, $3)",
-	// 	usr.Id, USER_CREATE_TYPE, usr) // FIXME remove password from event body
-	// if err = row.Err(); err != nil {
-	// 	return usr, err
-	// }
-	stmt, err := connPool.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
+
+	stmtEvents, err := connPool.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close() // https://go.dev/doc/database/prepared-statements
-	_, err = stmt.Exec(usr.Id, usr.Username, usr.Password)
+	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
+
+	// stringify user for event body
+	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	if err != nil {
+		return err
+	}
+
+	_, err = stmtEvents.Exec(usr.Id, USER_CREATE_TYPE, stringifyUsr)
+	if err != nil {
+		return err
+	}
+
+	stmtUser, err := connPool.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	defer stmtUser.Close()
+	_, err = stmtUser.Exec(usr.Id, usr.Username, usr.Password)
 	return err
+}
+
+// creates a copy of the user with the password field set to ""
+func omitPassword(usr *model.User) model.User {
+	usrCopy := *usr
+	usrCopy.Password = ""
+	return usrCopy
 }
