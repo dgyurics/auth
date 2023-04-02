@@ -2,6 +2,7 @@ package repository
 
 import (
 	"auth/src/model"
+	"context"
 	"encoding/json"
 )
 
@@ -57,8 +58,16 @@ func (r *userRepository) UpdateUser(usr *model.User) (updatedUsr *model.User, er
 // FIXME: wrap in single transaction
 func (r *userRepository) CreateUser(usr *model.User) error {
 	connPool := r.c.connPool
+	ctx := context.TODO() // FIXME: placeholder while I wire up request context
+	tx, err := connPool.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
 
-	stmtEvents, err := connPool.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	// Defer a rollback in case anything fails.
+	defer tx.Rollback()
+
+	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
 	if err != nil {
 		return err
 	}
@@ -75,13 +84,19 @@ func (r *userRepository) CreateUser(usr *model.User) error {
 		return err
 	}
 
-	stmtUser, err := connPool.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
+	stmtUser, err := tx.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
 	if err != nil {
 		return err
 	}
 	defer stmtUser.Close()
-	_, err = stmtUser.Exec(usr.Id, usr.Username, usr.Password)
-	return err
+	if _, err = stmtUser.Exec(usr.Id, usr.Username, usr.Password); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // creates a copy of the user with the password field set to ""
