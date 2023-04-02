@@ -14,6 +14,11 @@ type ServerConfig struct {
 
 type PostgreSql struct {
 	Url string
+	// Host     string
+	// Port     int
+	// User     string
+	// Password string
+	// DbName   string
 }
 
 type Config struct {

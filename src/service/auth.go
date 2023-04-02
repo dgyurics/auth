@@ -3,11 +3,15 @@ package service
 import (
 	"auth/src/model"
 	repo "auth/src/repository"
+	"errors"
+
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService interface {
-	Login(username string, password string) (model.User, error)
-	Create(username string, password string) (model.User, error)
+	Login(username string, password string) (*model.User, error)
+	Create(username string, password []byte) (*model.User, error)
 	Logout(username string) error
 	Remove(username string) error
 	Exists(username string) bool
@@ -24,21 +28,32 @@ func NewAuthService(c *repo.DbClient) AuthService {
 }
 
 func (s *authService) Exists(username string) bool {
-	// TODO
-	// verify username is unique
-	return false
+	return s.userRepository.Exists(username)
 }
 
-func (s *authService) Create(username string, password string) (usr model.User, err error) {
-	// TODO
-	// verify username is unique
-	// generate Id
-	// salt + encrypt password
-	// store event in db
-	return usr, nil
+// Assumes username is not taken
+func (s *authService) Create(username string, password []byte) (*model.User, error) {
+	if len(password) > 72 {
+		return nil, errors.New("password too long")
+	}
+	// TODO: make cost configurable, should be 12+ in prod env
+	// https://stackoverflow.com/a/6833165/714618
+	hashedPass, err := bcrypt.GenerateFromPassword(password, 10)
+	if err != nil {
+		return nil, err
+	}
+	newUsr := &model.User{
+		Id:       uuid.New().String(),
+		Username: username,
+		Password: string(hashedPass),
+	}
+	if err := s.userRepository.CreateUser(newUsr); err != nil {
+		return nil, err
+	}
+	return newUsr, nil
 }
 
-func (s *authService) Login(username string, password string) (usr model.User, err error) {
+func (s *authService) Login(username string, password string) (usr *model.User, err error) {
 	// TODO
 	// verify username and password match
 	// store event in db

@@ -15,8 +15,10 @@ type httpHandler struct {
 }
 
 func NewHttpHandler() *httpHandler {
+	dbClient := repository.NewDBClient()
+	dbClient.Connect()
 	return &httpHandler{
-		authService: service.NewAuthService(repository.NewDBClient()),
+		authService: service.NewAuthService(dbClient),
 	}
 }
 
@@ -26,7 +28,7 @@ func (s *httpHandler) healthCheck(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 	// unmarshal request body
-	var user model.User
+	var user *model.User
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -34,7 +36,9 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ensure username and password are not empty
-	if user.Username == "" || user.Password == "" {
+	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
+	password := []byte(user.Password)
+	if user.Username == "" || len(password) < 1 || len(password) > 72 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -43,8 +47,8 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
 	}
-	// create user
-	user, err := s.authService.Create(user.Username, user.Password)
+	// // create user
+	user, err := s.authService.Create(user.Username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
