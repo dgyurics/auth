@@ -44,7 +44,7 @@ func (s *authService) Create(ctx context.Context, username string, password []by
 		return nil, err
 	}
 	newUsr := &model.User{
-		Id:       uuid.New().String(),
+		Id:       uuid.New(),
 		Username: username,
 		Password: string(hashedPass),
 	}
