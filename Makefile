@@ -1,12 +1,16 @@
-# Use this for running the project in development mode
+# run project in development mode
 run:
 	go run src/main.go
 
-# Remove go package
+# test project
+test:
+	go test ./...
+
+# remove go package
 remove-package:
 	go get $(package)@none
 	go clean -cache -modcache
 
-# Start single docker container
+# start single docker container
 run-container:
 	docker-compose up -d $(container)
