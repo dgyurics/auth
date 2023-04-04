@@ -55,7 +55,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// TODO return valid session token
+	// FIXME return valid session token, instead of user
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
