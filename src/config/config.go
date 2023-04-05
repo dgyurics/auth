@@ -21,9 +21,17 @@ type PostgreSql struct {
 	// DbName   string
 }
 
+type Redis struct {
+	Addr     string
+	Username string
+	Password string
+	DB       int
+}
+
 type Config struct {
 	ServerConfig ServerConfig
 	PostgreSql   PostgreSql
+	Redis        Redis
 }
 
 func init() {
@@ -37,6 +45,12 @@ func New() *Config {
 		},
 		PostgreSql: PostgreSql{
 			Url: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/auth"),
+		},
+		Redis: Redis{
+			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
+			Username: getEnv("REDIS_USERNAME", ""),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 	}
 }
