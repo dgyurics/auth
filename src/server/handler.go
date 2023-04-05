@@ -1,6 +1,8 @@
 package server
 
 import (
+	"auth/src/cache"
+	"auth/src/config"
 	"auth/src/model"
 	"auth/src/repository"
 	"auth/src/service"
@@ -11,14 +13,18 @@ import (
 // create a new AuthService
 
 type httpHandler struct {
-	authService service.AuthService
+	authService    service.AuthService
+	sessionService service.SessionService
 }
 
 func NewHttpHandler() *httpHandler {
+	config := config.New()
 	dbClient := repository.NewDBClient()
-	dbClient.Connect()
+	dbClient.Connect(config.PostgreSql)
+	redisClient := cache.NewClient(config.Redis)
 	return &httpHandler{
-		authService: service.NewAuthService(dbClient),
+		authService:    service.NewAuthService(dbClient),
+		sessionService: service.NewSessionService(redisClient),
 	}
 }
 
@@ -55,9 +61,10 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// FIXME return valid session token, instead of user
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+
+	// TODO set cookie
+	s.sessionService.Create(ctx, user.Id.String())
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (s *httpHandler) authentication(w http.ResponseWriter, r *http.Request) {

@@ -1,22 +1,30 @@
 package service
 
 import (
+	"auth/src/cache"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+
+	"github.com/go-redis/redis/v8"
 )
 
 type SessionService interface {
-	Create(userId string) string
+	Create(ctx context.Context, userId string) string
 	FetchUserId(sessionId string) error
 	Invalidate(sessionId string) error
 }
 
-type sessionService struct{}
+type sessionService struct {
+	sessionCache cache.SessionCache
+}
 
 // FIXME: will need client for in-memory db
-func NewSessionService() SessionService {
-	return &sessionService{}
+func NewSessionService(c *redis.Client) SessionService {
+	return &sessionService{
+		sessionCache: cache.NewSessionCache(c),
+	}
 }
 
 func (s *sessionService) Invalidate(sessionId string) error {
@@ -29,13 +37,15 @@ func (s *sessionService) FetchUserId(sessionId string) error {
 	return nil
 }
 
-// session id is a base64 encoded 32 byte random string
-func (s *sessionService) Create(userId string) string {
-	// TOOD check for collisions
-	// TODO: store session id + userId in in-memory db
-	return generateSessionId()
+func (s *sessionService) Create(ctx context.Context, userId string) string {
+	// TOOD verify likeliehood of collision
+	// TODO prevent user from creating too many sessions
+	sessionId := generateSessionId()
+	s.sessionCache.Set(ctx, sessionId, userId)
+	return sessionId
 }
 
+// base64 encoded 32 byte random string
 func generateSessionId() string {
 	b := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {

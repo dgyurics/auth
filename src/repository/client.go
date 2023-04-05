@@ -1,14 +1,13 @@
 package repository
 
 import (
+	"auth/src/config"
 	"database/sql"
 	"log"
-	"os"
 
 	_ "github.com/lib/pq"
 )
 
-// dbClient is a wrapper around sql.DB
 type DbClient struct {
 	connPool *sql.DB // safe for multiple goroutines
 }
@@ -20,14 +19,8 @@ func NewDBClient() *DbClient {
 // FIXME search_path=auth in database url not working
 // set schema
 // https://github.com/go-pg/pg/issues/351#issuecomment-474875596
-func (c *DbClient) Connect() {
-	// FIXME use config
-	connStr := os.Getenv("DATABASE_URL")
-	if connStr == "" {
-		log.Fatal("DATABASE_URL not set")
-		return
-	}
-	connection, err := sql.Open("postgres", connStr)
+func (c *DbClient) Connect(config config.PostgreSql) {
+	connection, err := sql.Open("postgres", config.Url)
 	if err != nil {
 		log.Fatal(err)
 		return
