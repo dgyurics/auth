@@ -20,6 +20,9 @@ func NewSessionCache(c *redis.Client) *sessionCache {
 }
 
 func (s *sessionCache) Set(ctx context.Context, key string, value string) error {
+	// TODO: set expiration
+	// expiration time.Duration
+	// obtain from config
 	return s.c.Set(ctx, key, value, 0).Err()
 }
 

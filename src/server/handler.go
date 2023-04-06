@@ -62,8 +62,12 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO set cookie
-	s.sessionService.Create(ctx, user.Id.String())
+	sessionId := s.sessionService.Create(ctx, user.Id.String())
+	if sessionId == "" {
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, createCookie("X-Session-ID", sessionId))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -87,4 +91,19 @@ func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
 	// ensure session is a valid 128+ bits long
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
 	w.WriteHeader(http.StatusOK)
+}
+
+// FIXME make configurable
+func createCookie(name, value string) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		HttpOnly: true,
+		// Expires: "", // should be same as redis ttl
+		// MaxAge: ,
+		// Domain: "",
+		// Path: "",
+		// Secure: true,
+		// SameSite: ,
+	}
 }
