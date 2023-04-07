@@ -25,4 +25,4 @@ auth
 *.txt
 
 # Secrets
-*.env
+.env

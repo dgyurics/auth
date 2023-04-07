@@ -5,11 +5,11 @@ services:
     image: auth
     build:
       context: .
-    container_name: auth_service
-    environment:
-      - PORT=8080
+    container_name: auth
     ports:
       - "3000:8080"
+    env_file:
+      - .docker.env
     links:
       - postgres
       - redis
@@ -38,6 +38,8 @@ services:
       - '6379:6379'
     volumes: 
       - redis:/data
+      # TODO create a redis.conf file
+      # - ./redis.conf:/usr/local/etc/redis/redis.conf
 
 volumes:
   pg_data:
