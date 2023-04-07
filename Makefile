@@ -14,3 +14,8 @@ remove-package:
 # start single docker container
 run-container:
 	docker-compose up -d $(container)
+
+# start multiple docker containers of the same image
+# note container_name and host port need to be omitted from docker-compose.yml
+run-container-scale:
+	docker-compose up -d --scale $(container)=$(instances)
