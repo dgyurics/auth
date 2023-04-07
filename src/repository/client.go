@@ -3,6 +3,7 @@ package repository
 import (
 	"auth/src/config"
 	"database/sql"
+	"fmt"
 	"log"
 
 	_ "github.com/lib/pq"
@@ -16,11 +17,12 @@ func NewDBClient() *DbClient {
 	return &DbClient{}
 }
 
-// FIXME search_path=auth in database url not working
-// set schema
+// FIXME unable to specify schema name via search_path=auth
 // https://github.com/go-pg/pg/issues/351#issuecomment-474875596
 func (c *DbClient) Connect(config config.PostgreSql) {
-	connection, err := sql.Open("postgres", config.Url)
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=%s",
+		config.Host, config.Port, config.User, config.Password, config.Dbname, config.Sslmode, config.FallbackApplication)
+	connection, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
 		return

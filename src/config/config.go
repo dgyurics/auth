@@ -13,12 +13,18 @@ type ServerConfig struct {
 }
 
 type PostgreSql struct {
-	Url string
-	// Host     string
-	// Port     int
-	// User     string
-	// Password string
-	// DbName   string
+	Dbname              string
+	User                string
+	Password            string
+	Host                string
+	Port                int
+	Sslmode             string
+	FallbackApplication string // allows for associating database activity with a particular application
+	// TODO add support for below items
+	// ConnectTimeout       string
+	// Sslcert              string
+	// Sslkey               string
+	// Sslrootcert          string
 }
 
 type Redis struct {
@@ -44,7 +50,13 @@ func New() *Config {
 			Port: getEnv("PORT", "8080"),
 		},
 		PostgreSql: PostgreSql{
-			Url: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/auth"),
+			Dbname:              getEnv("POSTGRES_DB", "auth"),
+			User:                getEnv("POSTGRES_USER", "postgres"),
+			Password:            getEnv("POSTGRES_PASSWORD", "postgres"),
+			Host:                getEnv("POSTGRES_HOST", "localhost"),
+			Port:                getEnvAsInt("POSTGRES_PORT", 5432),
+			Sslmode:             getEnv("POSTGRES_SSLMODE", "disable"),
+			FallbackApplication: getEnv("POSTGRES_FALLBACK_APPLICATION", "golang_auth_service"),
 		},
 		Redis: Redis{
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
