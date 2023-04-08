@@ -1,21 +1,35 @@
 version: "3.9"
 
 services:
+  nginx:
+    image: nginx
+    build:
+      context: ./nginx/
+    container_name: nginx
+    restart: always
+    ports:
+      - "3001:80"
+    depends_on:
+      - auth
+    networks:
+      - proxy-network
+
   auth:
     image: auth
     build:
       context: .
     container_name: auth
+    restart: always
     ports:
-      - "3000:8080"
+      - "3000:8080" # changing internal port requires changing port in env_file
     env_file:
       - .docker.env
-    links:
-      - postgres
-      - redis
     depends_on:
       - postgres
       - redis
+    networks:
+      - proxy-network
+      - auth-network
 
   postgres:
     image: postgres:12.9
@@ -29,6 +43,8 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data/
+    networks:
+      - auth-network
 
   redis:
     image: redis:6.2
@@ -40,6 +56,14 @@ services:
       - redis:/data
       # TODO create a redis.conf file
       # - ./redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - auth-network
+
+networks:
+  proxy-network:
+    driver: bridge
+  auth-network:
+    driver: bridge
 
 volumes:
   pg_data:

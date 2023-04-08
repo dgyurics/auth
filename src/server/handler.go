@@ -43,6 +43,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 
 	// ensure username and password are not empty
 	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
+	// TODO verify username is not too long
 	password := []byte(user.Password)
 	if user.Username == "" || len(password) < 1 || len(password) > 72 {
 		w.WriteHeader(http.StatusBadRequest)
