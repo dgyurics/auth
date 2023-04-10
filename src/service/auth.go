@@ -12,9 +12,9 @@ import (
 type AuthService interface {
 	Login(ctx context.Context, usr *model.User) error
 	Create(ctx context.Context, usr *model.User) error
-	Logout(username string) error
-	Remove(username string) error
-	Exists(ctx context.Context, username string) bool
+	Logout(ctx context.Context, usr *model.User) error
+	Remove(ctx context.Context, usr *model.User) error
+	Exists(ctx context.Context, usr *model.User) bool
 }
 
 type authService struct {
@@ -27,8 +27,8 @@ func NewAuthService(c *repo.DbClient) AuthService {
 	}
 }
 
-func (s *authService) Exists(ctx context.Context, username string) bool {
-	return s.userRepository.Exists(ctx, username)
+func (s *authService) Exists(ctx context.Context, usr *model.User) bool {
+	return s.userRepository.Exists(ctx, usr.Username)
 }
 
 // Assumes username is not taken
@@ -58,7 +58,7 @@ func (s *authService) Login(ctx context.Context, usr *model.User) error {
 	return nil
 }
 
-func (s *authService) Logout(username string) error {
+func (s *authService) Logout(ctx context.Context, usr *model.User) error {
 	// TODO
 	// verify session is valid
 	// store event in db
@@ -66,7 +66,7 @@ func (s *authService) Logout(username string) error {
 	return nil
 }
 
-func (s *authService) Remove(username string) error {
+func (s *authService) Remove(ctx context.Context, usr *model.User) error {
 	// TODO
 	// verify session is valid
 	// store event in db
