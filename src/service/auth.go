@@ -4,14 +4,13 @@ import (
 	"auth/src/model"
 	repo "auth/src/repository"
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService interface {
-	Login(username string, password string) (*model.User, error)
+	Login(ctx context.Context, username string, password string) (*model.User, error)
 	Create(ctx context.Context, username string, password []byte) (*model.User, error)
 	Logout(username string) error
 	Remove(username string) error
@@ -34,9 +33,6 @@ func (s *authService) Exists(ctx context.Context, username string) bool {
 
 // Assumes username is not taken
 func (s *authService) Create(ctx context.Context, username string, password []byte) (*model.User, error) {
-	if len(password) > 72 {
-		return nil, errors.New("password too long")
-	}
 	// TODO: make cost configurable, should be 12+ in prod env
 	// https://stackoverflow.com/a/6833165/714618
 	hashedPass, err := bcrypt.GenerateFromPassword(password, 10)
@@ -54,11 +50,14 @@ func (s *authService) Create(ctx context.Context, username string, password []by
 	return newUsr, nil
 }
 
-func (s *authService) Login(username string, password string) (usr *model.User, err error) {
-	// TODO
-	// verify username and password match
-	// store event in db
-	// create session
+func (s *authService) Login(ctx context.Context, username string, password string) (*model.User, error) {
+	usr, err := s.userRepository.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err != nil {
+		return nil, err
+	}
 	return usr, nil
 }
 
