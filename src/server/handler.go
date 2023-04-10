@@ -43,9 +43,8 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 
 	// ensure username and password are not empty
 	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
-	// TODO verify username is not too long
 	password := []byte(user.Password)
-	if user.Username == "" || len(password) < 1 || len(password) > 72 {
+	if user.Username == "" || len(user.Username) > 50 || len(password) < 1 || len(password) > 72 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -72,7 +71,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (s *httpHandler) authentication(w http.ResponseWriter, r *http.Request) {
+func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 	// from request body
 	// username := r.body.username
 	// password := r.body.password
@@ -81,6 +80,15 @@ func (s *httpHandler) authentication(w http.ResponseWriter, r *http.Request) {
 	// hash + salt password
 	// verify username password combo exists
 	// return valid session token
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
+	// from request cookie session
+	// session := r.cookie.session
+	// or from request url param token
+
+	// invalidate session
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -100,8 +108,7 @@ func createCookie(name, value string) *http.Cookie {
 		Name:     name,
 		Value:    value,
 		HttpOnly: true,
-		// Expires: "", // should be same as redis ttl
-		// MaxAge: ,
+		MaxAge:   1800, // 30 minutes
 		// Domain: "",
 		// Path: "",
 		// Secure: true,

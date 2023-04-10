@@ -36,10 +36,10 @@ func NewHttpServer(addr string) *http.Server {
 
 	handler := NewHttpHandler()
 
-	// TODO pass context in-order to fail fast
 	r.Get("/health", handler.healthCheck)
-	r.Get("/session", handler.session)
-	r.Post("/login", handler.authentication)
+	r.Get("/user", handler.session)
+	r.Post("/login", handler.login)
+	r.Post("/logout", handler.logout)
 	r.Post("/register", handler.registration)
 
 	return &http.Server{
