@@ -10,8 +10,8 @@ import (
 )
 
 type AuthService interface {
-	Login(ctx context.Context, username string, password string) (*model.User, error)
-	Create(ctx context.Context, username string, password []byte) (*model.User, error)
+	Login(ctx context.Context, usr *model.User) error
+	Create(ctx context.Context, usr *model.User) error
 	Logout(username string) error
 	Remove(username string) error
 	Exists(ctx context.Context, username string) bool
@@ -32,33 +32,30 @@ func (s *authService) Exists(ctx context.Context, username string) bool {
 }
 
 // Assumes username is not taken
-func (s *authService) Create(ctx context.Context, username string, password []byte) (*model.User, error) {
+func (s *authService) Create(ctx context.Context, user *model.User) error {
 	// TODO: make cost configurable, should be 12+ in prod env
 	// https://stackoverflow.com/a/6833165/714618
-	hashedPass, err := bcrypt.GenerateFromPassword(password, 10)
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	newUsr := &model.User{
-		Id:       uuid.New(),
-		Username: username,
-		Password: string(hashedPass),
+	user.Id = uuid.New()
+	user.Password = string(hashedPass)
+	if err := s.userRepository.CreateUser(ctx, user); err != nil {
+		return err
 	}
-	if err := s.userRepository.CreateUser(ctx, newUsr); err != nil {
-		return nil, err
-	}
-	return newUsr, nil
+	return nil
 }
 
-func (s *authService) Login(ctx context.Context, username string, password string) (*model.User, error) {
-	usr, err := s.userRepository.GetUserByUsername(ctx, username)
+func (s *authService) Login(ctx context.Context, usr *model.User) error {
+	usrRec, err := s.userRepository.GetUserByUsername(ctx, usr.Username)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err != nil {
-		return nil, err
+	if err := bcrypt.CompareHashAndPassword([]byte(usrRec.Password), []byte(usr.Password)); err != nil {
+		return err
 	}
-	return usr, nil
+	return nil
 }
 
 func (s *authService) Logout(username string) error {
