@@ -9,6 +9,7 @@ import (
 type SessionCache interface {
 	Set(ctx context.Context, key string, value string) error
 	Get(ctx context.Context, key string) (string, error)
+	Del(ctx context.Context, key string) error
 }
 
 type sessionCache struct {
@@ -17,6 +18,10 @@ type sessionCache struct {
 
 func NewSessionCache(c *redis.Client) *sessionCache {
 	return &sessionCache{c: c}
+}
+
+func (s *sessionCache) Del(ctx context.Context, key string) error {
+	return s.c.Del(ctx, key).Err()
 }
 
 func (s *sessionCache) Set(ctx context.Context, key string, value string) error {

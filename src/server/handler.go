@@ -9,9 +9,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
-// create a new AuthService
+const SessionCookieName = "X-Session-ID"
 
 type httpHandler struct {
 	authService    service.AuthService
@@ -51,7 +52,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 
 	// ensure username is unique
 	ctx := r.Context()
-	if s.authService.Exists(ctx, user.Username) {
+	if s.authService.Exists(ctx, user) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
 	}
@@ -66,7 +67,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, createCookie("X-Session-ID", sessionId))
+	http.SetCookie(w, createCookie(SessionCookieName, sessionId))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -98,19 +99,23 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, createCookie("X-Session-ID", sessionId))
+	http.SetCookie(w, createCookie(SessionCookieName, sessionId))
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
-	// from request cookie session
-	// session := r.cookie.session
-	// or from request url param token
-
-	// invalidate session
+	cookie, err := r.Cookie(SessionCookieName)
+	if err == nil {
+		// TODO DO we want an event to exist for logout?
+		// FIXME should invalidate ALL user sessions
+		// currently only invalidates the session cookie
+		http.SetCookie(w, expireCookie(cookie))
+		s.sessionService.Invalidate(r.Context(), cookie.Value)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
+// secure endpoint which retrieves session information
 func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
 	// from request cookie session
 	// session := r.cookie.session
@@ -119,6 +124,14 @@ func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
 	// ensure session is a valid 128+ bits long
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
 	w.WriteHeader(http.StatusOK)
+}
+
+func expireCookie(cookie *http.Cookie) *http.Cookie {
+	if cookie == nil {
+		return nil
+	}
+	cookie.Expires = time.Now().AddDate(0, 0, -1)
+	return cookie
 }
 
 // FIXME make configurable
