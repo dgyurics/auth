@@ -27,6 +27,13 @@ type PostgreSql struct {
 	// Sslrootcert          string
 }
 
+type Cors struct {
+	AllowOrigin      string
+	AllowMethods     string
+	AllowHeaders     string
+	AllowCredentials string
+}
+
 type Redis struct {
 	Addr     string
 	Username string
@@ -35,9 +42,10 @@ type Redis struct {
 }
 
 type Config struct {
-	ServerConfig ServerConfig
+	Cors         Cors
 	PostgreSql   PostgreSql
 	Redis        Redis
+	ServerConfig ServerConfig
 }
 
 func init() {
@@ -46,8 +54,11 @@ func init() {
 
 func New() *Config {
 	return &Config{
-		ServerConfig: ServerConfig{
-			Port: getEnv("PORT", "8080"),
+		Cors: Cors{
+			AllowOrigin:      getEnv("CORS_ALLOW_ORIGIN", "*"),
+			AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+			AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "*"),
+			AllowCredentials: getEnv("CORS_ALLOW_CREDENTIALS", "true"),
 		},
 		PostgreSql: PostgreSql{
 			Dbname:              getEnv("POSTGRES_DB", "auth"),
@@ -63,6 +74,9 @@ func New() *Config {
 			Username: getEnv("REDIS_USERNAME", ""),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
+		},
+		ServerConfig: ServerConfig{
+			Port: getEnv("PORT", "8080"),
 		},
 	}
 }
