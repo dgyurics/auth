@@ -113,7 +113,7 @@ func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, expireCookie(cookie))
 
 	// generate logout event
-	userId, err := s.sessionService.FetchUserId(r.Context(), cookie.Value)
+	userId, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -124,7 +124,7 @@ func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// remove session from redis
-	s.sessionService.Invalidate(r.Context(), cookie.Value)
+	s.sessionService.Remove(r.Context(), cookie.Value)
 
 	w.WriteHeader(http.StatusOK)
 }

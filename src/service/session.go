@@ -13,8 +13,8 @@ import (
 
 type SessionService interface {
 	Create(ctx context.Context, userId string) (string, error)
-	FetchUserId(ctx context.Context, sessionId string) (uuid.UUID, error)
-	Invalidate(ctx context.Context, sessionId string) error
+	Fetch(ctx context.Context, sessionId string) (uuid.UUID, error)
+	Remove(ctx context.Context, sessionId string) error
 }
 
 type sessionService struct {
@@ -28,11 +28,11 @@ func NewSessionService(c *redis.Client) SessionService {
 	}
 }
 
-func (s *sessionService) Invalidate(ctx context.Context, sessionId string) error {
+func (s *sessionService) Remove(ctx context.Context, sessionId string) error {
 	return s.sessionCache.Del(ctx, sessionId)
 }
 
-func (s *sessionService) FetchUserId(ctx context.Context, sessionId string) (uuid.UUID, error) {
+func (s *sessionService) Fetch(ctx context.Context, sessionId string) (uuid.UUID, error) {
 	userId, err := s.sessionCache.Get(ctx, sessionId)
 	if err != nil {
 		return uuid.UUID{}, err
