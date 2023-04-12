@@ -129,8 +129,8 @@ func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// secure endpoint which retrieves session information
-func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
+// secure endpoint which retrieves user information
+func (s *httpHandler) user(w http.ResponseWriter, r *http.Request) {
 	// ensure session is a valid 128+ bits long
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
 

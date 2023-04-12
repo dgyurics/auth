@@ -37,7 +37,7 @@ func NewHttpServer(addr string) *http.Server {
 	handler := NewHttpHandler()
 
 	r.Get("/health", handler.healthCheck)
-	r.Get("/user", handler.session)
+	r.Get("/user", handler.user)
 	r.Post("/login", handler.login)
 	r.Post("/logout", handler.logout)
 	r.Post("/register", handler.registration)
