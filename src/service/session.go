@@ -8,11 +8,12 @@ import (
 	"io"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 )
 
 type SessionService interface {
-	Create(ctx context.Context, userId string) string
-	FetchUserId(sessionId string) error
+	Create(ctx context.Context, userId string) (string, error)
+	FetchUserId(ctx context.Context, sessionId string) (uuid.UUID, error)
 	Invalidate(ctx context.Context, sessionId string) error
 }
 
@@ -31,17 +32,19 @@ func (s *sessionService) Invalidate(ctx context.Context, sessionId string) error
 	return s.sessionCache.Del(ctx, sessionId)
 }
 
-func (s *sessionService) FetchUserId(sessionId string) error {
-	// TODO
-	return nil
+func (s *sessionService) FetchUserId(ctx context.Context, sessionId string) (uuid.UUID, error) {
+	userId, err := s.sessionCache.Get(ctx, sessionId)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return uuid.Parse(userId)
 }
 
-func (s *sessionService) Create(ctx context.Context, userId string) string {
+func (s *sessionService) Create(ctx context.Context, userId string) (string, error) {
 	// TOOD verify likeliehood of collision
 	// TODO prevent user from creating too many sessions
 	sessionId := generateSessionId()
-	s.sessionCache.Set(ctx, sessionId, userId)
-	return sessionId
+	return sessionId, s.sessionCache.Set(ctx, sessionId, userId)
 }
 
 // base64 encoded 32 byte random string

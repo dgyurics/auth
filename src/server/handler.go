@@ -62,8 +62,8 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionId := s.sessionService.Create(ctx, user.Id.String())
-	if sessionId == "" {
+	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
@@ -80,7 +80,6 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ensure username and password are not empty
 	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
 	if user.Username == "" || len(user.Username) > 50 || len(user.Password) < 1 || len(user.Password) > 72 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -94,8 +93,8 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionId := s.sessionService.Create(ctx, user.Id.String())
-	if sessionId == "" {
+	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
@@ -103,15 +102,30 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// FIXME should invalidate ALL user sessions,
+// currently only invalidates the session cookie in the request
 func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(SessionCookieName)
-	if err == nil {
-		// TODO DO we want an event to exist for logout?
-		// FIXME should invalidate ALL user sessions
-		// currently only invalidates the session cookie
-		http.SetCookie(w, expireCookie(cookie))
-		s.sessionService.Invalidate(r.Context(), cookie.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+	http.SetCookie(w, expireCookie(cookie))
+
+	// generate logout event
+	userId, err := s.sessionService.FetchUserId(r.Context(), cookie.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err = s.authService.Logout(r.Context(), &model.User{Id: userId}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// remove session from redis
+	s.sessionService.Invalidate(r.Context(), cookie.Value)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -135,6 +149,9 @@ func expireCookie(cookie *http.Cookie) *http.Cookie {
 }
 
 // FIXME make configurable
+// TODO Validate contents of cookie to ensure it has not been modified/tampered with.
+// This can be done by adding a message authentication code (MAC) to the cookie,
+// which can be used to verify the integrity of the cookie's contents.
 func createCookie(name, value string) *http.Cookie {
 	return &http.Cookie{
 		Name:     name,

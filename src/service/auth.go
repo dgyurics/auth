@@ -14,7 +14,7 @@ type AuthService interface {
 	Create(ctx context.Context, usr *model.User) error
 	Logout(ctx context.Context, usr *model.User) error
 	Remove(ctx context.Context, usr *model.User) error
-	Exists(ctx context.Context, usr *model.User) bool
+	Exists(ctx context.Context, usr *model.User) bool // FIXME remove and combine in single transaction with Create
 }
 
 type authService struct {
@@ -31,7 +31,6 @@ func (s *authService) Exists(ctx context.Context, usr *model.User) bool {
 	return s.userRepository.Exists(ctx, usr.Username)
 }
 
-// Assumes username is not taken
 func (s *authService) Create(ctx context.Context, user *model.User) error {
 	// TODO: make cost configurable, should be 12+ in prod env
 	// https://stackoverflow.com/a/6833165/714618
@@ -55,15 +54,12 @@ func (s *authService) Login(ctx context.Context, usr *model.User) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(usrRec.Password), []byte(usr.Password)); err != nil {
 		return err
 	}
-	return nil
+	usr.Id = usrRec.Id
+	return s.userRepository.LoginSuccess(ctx, usrRec)
 }
 
 func (s *authService) Logout(ctx context.Context, usr *model.User) error {
-	// TODO
-	// verify session is valid
-	// store event in db
-	// invalidate session
-	return nil
+	return s.userRepository.LogoutUser(ctx, usr)
 }
 
 func (s *authService) Remove(ctx context.Context, usr *model.User) error {

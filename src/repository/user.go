@@ -8,10 +8,12 @@ import (
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, usr *model.User) error
+	LoginSuccess(ctx context.Context, usr *model.User) error
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 	RemoveUserByUsername(username string) error
 	UpdateUser(usr *model.User) (*model.User, error)
 	Exists(ctx context.Context, username string) bool
+	LogoutUser(ctx context.Context, usr *model.User) error
 }
 
 type userRepository struct {
@@ -54,6 +56,62 @@ func (r *userRepository) UpdateUser(usr *model.User) (updatedUsr *model.User, er
 	// TODO create event
 	_, err = r.c.connPool.Exec("UPDATE auth.user SET username = $1, password = $2 WHERE id = $3", usr.Username, usr.Password, usr.Id)
 	return updatedUsr, err // FIXME
+}
+
+func (r *userRepository) LoginSuccess(ctx context.Context, usr *model.User) error {
+	connPool := r.c.connPool
+	tx, err := connPool.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
+
+	// stringify user for event body
+	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	if err != nil {
+		return err
+	}
+
+	if _, err = stmtEvents.Exec(usr.Id, USER_LOGIN_TYPE, stringifyUsr); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *userRepository) LogoutUser(ctx context.Context, usr *model.User) error {
+	connPool := r.c.connPool
+	tx, err := connPool.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
+
+	// stringify user for event body
+	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	if err != nil {
+		return err
+	}
+
+	if _, err = stmtEvents.Exec(usr.Id, USER_LOGOUT_TYPE, stringifyUsr); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // FIXME: wrap in single transaction
