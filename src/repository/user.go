@@ -9,7 +9,6 @@ import (
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) error
 	LoginSuccess(ctx context.Context, user *model.User) error
-	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 	GetUser(ctx context.Context, user *model.User) error
 	RemoveUserByUsername(username string) error
 	UpdateUser(user *model.User) (*model.User, error)
@@ -31,7 +30,7 @@ const USER_LOGOUT_TYPE = "user_logout"
 const USER_DELETE_TYPE = "user_delete"
 
 func (r *userRepository) Exists(ctx context.Context, username string) bool {
-	if _, err := r.GetUserByUsername(ctx, username); err != nil {
+	if err := r.GetUser(ctx, &model.User{Username: username}); err != nil {
 		return false
 	}
 	return true
@@ -51,16 +50,6 @@ func (r *userRepository) GetUser(ctx context.Context, user *model.User) error {
 		return err
 	}
 	return nil
-}
-
-func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
-	tmp := model.User{}
-	err = r.c.connPool.QueryRowContext(ctx, "SELECT id, username, password FROM auth.user WHERE username = $1", username).Scan(&tmp.Id, &tmp.Username, &tmp.Password)
-
-	if err != nil {
-		return nil, err
-	}
-	return &tmp, nil
 }
 
 func (r *userRepository) RemoveUserByUsername(userName string) error {

@@ -48,15 +48,15 @@ func (s *authService) Create(ctx context.Context, user *model.User) error {
 }
 
 func (s *authService) Login(ctx context.Context, user *model.User) error {
-	userRec, err := s.userRepository.GetUserByUsername(ctx, user.Username)
-	if err != nil {
+	userCpy := *user
+	if err := s.userRepository.GetUser(ctx, &userCpy); err != nil {
 		return err
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(userRec.Password), []byte(user.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(userCpy.Password), []byte(user.Password)); err != nil {
 		return err
 	}
-	user.Id = userRec.Id
-	return s.userRepository.LoginSuccess(ctx, userRec)
+	user.Id = userCpy.Id
+	return s.userRepository.LoginSuccess(ctx, &userCpy)
 }
 
 func (s *authService) Logout(ctx context.Context, user *model.User) error {
