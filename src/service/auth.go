@@ -10,12 +10,12 @@ import (
 )
 
 type AuthService interface {
-	Login(ctx context.Context, usr *model.User) error
-	Create(ctx context.Context, usr *model.User) error
-	Logout(ctx context.Context, usr *model.User) error
-	Remove(ctx context.Context, usr *model.User) error
-	Exists(ctx context.Context, usr *model.User) bool // FIXME remove and combine into single transaction with Create
-	Fetch(ctx context.Context, usr *model.User) error
+	Login(ctx context.Context, user *model.User) error
+	Create(ctx context.Context, user *model.User) error
+	Logout(ctx context.Context, user *model.User) error
+	Remove(ctx context.Context, user *model.User) error
+	Exists(ctx context.Context, user *model.User) bool // FIXME remove and combine into single transaction with Create
+	Fetch(ctx context.Context, user *model.User) error
 }
 
 type authService struct {
@@ -28,8 +28,8 @@ func NewAuthService(c *repo.DbClient) AuthService {
 	}
 }
 
-func (s *authService) Exists(ctx context.Context, usr *model.User) bool {
-	return s.userRepository.Exists(ctx, usr.Username)
+func (s *authService) Exists(ctx context.Context, user *model.User) bool {
+	return s.userRepository.Exists(ctx, user.Username)
 }
 
 func (s *authService) Create(ctx context.Context, user *model.User) error {
@@ -47,23 +47,23 @@ func (s *authService) Create(ctx context.Context, user *model.User) error {
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, usr *model.User) error {
-	usrRec, err := s.userRepository.GetUserByUsername(ctx, usr.Username)
+func (s *authService) Login(ctx context.Context, user *model.User) error {
+	userRec, err := s.userRepository.GetUserByUsername(ctx, user.Username)
 	if err != nil {
 		return err
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(usrRec.Password), []byte(usr.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(userRec.Password), []byte(user.Password)); err != nil {
 		return err
 	}
-	usr.Id = usrRec.Id
-	return s.userRepository.LoginSuccess(ctx, usrRec)
+	user.Id = userRec.Id
+	return s.userRepository.LoginSuccess(ctx, userRec)
 }
 
-func (s *authService) Logout(ctx context.Context, usr *model.User) error {
-	return s.userRepository.LogoutUser(ctx, usr)
+func (s *authService) Logout(ctx context.Context, user *model.User) error {
+	return s.userRepository.LogoutUser(ctx, user)
 }
 
-func (s *authService) Remove(ctx context.Context, usr *model.User) error {
+func (s *authService) Remove(ctx context.Context, user *model.User) error {
 	// TODO
 	// verify session is valid
 	// store event in db
@@ -71,6 +71,6 @@ func (s *authService) Remove(ctx context.Context, usr *model.User) error {
 	return nil
 }
 
-func (s *authService) Fetch(ctx context.Context, usr *model.User) error {
-	return s.userRepository.GetUser(ctx, usr)
+func (s *authService) Fetch(ctx context.Context, user *model.User) error {
+	return s.userRepository.GetUser(ctx, user)
 }

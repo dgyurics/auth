@@ -7,14 +7,14 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, usr *model.User) error
-	LoginSuccess(ctx context.Context, usr *model.User) error
+	CreateUser(ctx context.Context, user *model.User) error
+	LoginSuccess(ctx context.Context, user *model.User) error
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
-	GetUser(ctx context.Context, usr *model.User) error
+	GetUser(ctx context.Context, user *model.User) error
 	RemoveUserByUsername(username string) error
-	UpdateUser(usr *model.User) (*model.User, error)
+	UpdateUser(user *model.User) (*model.User, error)
 	Exists(ctx context.Context, username string) bool
-	LogoutUser(ctx context.Context, usr *model.User) error
+	LogoutUser(ctx context.Context, user *model.User) error
 }
 
 type userRepository struct {
@@ -53,7 +53,7 @@ func (r *userRepository) GetUser(ctx context.Context, user *model.User) error {
 	return nil
 }
 
-func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (usr *model.User, err error) {
+func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
 	tmp := model.User{}
 	err = r.c.connPool.QueryRowContext(ctx, "SELECT id, username, password FROM auth.user WHERE username = $1", username).Scan(&tmp.Id, &tmp.Username, &tmp.Password)
 
@@ -63,19 +63,19 @@ func (r *userRepository) GetUserByUsername(ctx context.Context, username string)
 	return &tmp, nil
 }
 
-func (r *userRepository) RemoveUserByUsername(usrName string) error {
+func (r *userRepository) RemoveUserByUsername(userName string) error {
 	// TODO create event
-	_, err := r.c.connPool.Exec("DELETE FROM user WHERE auth.username = $1", usrName)
+	_, err := r.c.connPool.Exec("DELETE FROM user WHERE auth.username = $1", userName)
 	return err
 }
 
-func (r *userRepository) UpdateUser(usr *model.User) (updatedUsr *model.User, err error) {
+func (r *userRepository) UpdateUser(user *model.User) (updateduser *model.User, err error) {
 	// TODO create event
-	_, err = r.c.connPool.Exec("UPDATE auth.user SET username = $1, password = $2 WHERE id = $3", usr.Username, usr.Password, usr.Id)
-	return updatedUsr, err // FIXME
+	_, err = r.c.connPool.Exec("UPDATE auth.user SET username = $1, password = $2 WHERE id = $3", user.Username, user.Password, user.Id)
+	return updateduser, err // FIXME
 }
 
-func (r *userRepository) LoginSuccess(ctx context.Context, usr *model.User) error {
+func (r *userRepository) LoginSuccess(ctx context.Context, user *model.User) error {
 	connPool := r.c.connPool
 	tx, err := connPool.BeginTx(ctx, nil)
 	if err != nil {
@@ -89,13 +89,13 @@ func (r *userRepository) LoginSuccess(ctx context.Context, usr *model.User) erro
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	OmitPassword(usr)
-	stringifyUsr, err := json.Marshal(usr)
+	OmitPassword(user)
+	stringifyuser, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 
-	if _, err = stmtEvents.Exec(usr.Id, USER_LOGIN_TYPE, stringifyUsr); err != nil {
+	if _, err = stmtEvents.Exec(user.Id, USER_LOGIN_TYPE, stringifyuser); err != nil {
 		return err
 	}
 	if err = tx.Commit(); err != nil {
@@ -104,7 +104,7 @@ func (r *userRepository) LoginSuccess(ctx context.Context, usr *model.User) erro
 	return nil
 }
 
-func (r *userRepository) LogoutUser(ctx context.Context, usr *model.User) error {
+func (r *userRepository) LogoutUser(ctx context.Context, user *model.User) error {
 	connPool := r.c.connPool
 	tx, err := connPool.BeginTx(ctx, nil)
 	if err != nil {
@@ -118,13 +118,13 @@ func (r *userRepository) LogoutUser(ctx context.Context, usr *model.User) error 
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	OmitPassword(usr)
-	stringifyUsr, err := json.Marshal(usr)
+	OmitPassword(user)
+	stringifyuser, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 
-	if _, err = stmtEvents.Exec(usr.Id, USER_LOGOUT_TYPE, stringifyUsr); err != nil {
+	if _, err = stmtEvents.Exec(user.Id, USER_LOGOUT_TYPE, stringifyuser); err != nil {
 		return err
 	}
 	if err = tx.Commit(); err != nil {
@@ -134,7 +134,7 @@ func (r *userRepository) LogoutUser(ctx context.Context, usr *model.User) error 
 }
 
 // FIXME: wrap in single transaction
-func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error {
+func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
 	connPool := r.c.connPool
 	tx, err := connPool.BeginTx(ctx, nil)
 	if err != nil {
@@ -151,13 +151,13 @@ func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error 
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	OmitPassword(usr)
-	stringifyUsr, err := json.Marshal(usr)
+	OmitPassword(user)
+	stringifyuser, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 
-	_, err = stmtEvents.Exec(usr.Id, USER_CREATE_TYPE, stringifyUsr)
+	_, err = stmtEvents.Exec(user.Id, USER_CREATE_TYPE, stringifyuser)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error 
 		return err
 	}
 	defer stmtUser.Close()
-	if _, err = stmtUser.Exec(usr.Id, usr.Username, usr.Password); err != nil {
+	if _, err = stmtUser.Exec(user.Id, user.Username, user.Password); err != nil {
 		return err
 	}
 
@@ -178,6 +178,6 @@ func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error 
 }
 
 // creates a copy of the user with the password field set to ""
-func OmitPassword(usr *model.User) {
-	usr.Password = ""
+func OmitPassword(user *model.User) {
+	user.Password = ""
 }

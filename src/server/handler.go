@@ -148,14 +148,14 @@ func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usr := &model.User{Id: userId}
-	if err = s.authService.Fetch(r.Context(), usr); err != nil {
+	user := &model.User{Id: userId}
+	if err = s.authService.Fetch(r.Context(), user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	repository.OmitPassword(usr)
-	if err := json.NewEncoder(w).Encode(usr); err != nil {
+	repository.OmitPassword(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
