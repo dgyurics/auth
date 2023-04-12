@@ -131,12 +131,35 @@ func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 
 // secure endpoint which retrieves session information
 func (s *httpHandler) session(w http.ResponseWriter, r *http.Request) {
-	// from request cookie session
-	// session := r.cookie.session
-	// or from request url param token
-
 	// ensure session is a valid 128+ bits long
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
+
+	// extract session from cookie
+	cookie, err := r.Cookie(SessionCookieName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// verify session is valid and fetch user id
+	userId, err := s.sessionService.Fetch(r.Context(), cookie.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	usr := &model.User{Id: userId}
+	if err = s.authService.Fetch(r.Context(), usr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	repository.OmitPassword(usr)
+	if err := json.NewEncoder(w).Encode(usr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 

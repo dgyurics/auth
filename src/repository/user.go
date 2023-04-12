@@ -10,6 +10,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, usr *model.User) error
 	LoginSuccess(ctx context.Context, usr *model.User) error
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
+	GetUser(ctx context.Context, usr *model.User) error
 	RemoveUserByUsername(username string) error
 	UpdateUser(usr *model.User) (*model.User, error)
 	Exists(ctx context.Context, username string) bool
@@ -34,6 +35,22 @@ func (r *userRepository) Exists(ctx context.Context, username string) bool {
 		return false
 	}
 	return true
+}
+
+func (r *userRepository) GetUser(ctx context.Context, user *model.User) error {
+	var arg, query string
+	if user.Username != "" {
+		query = "SELECT id, username, password FROM auth.user WHERE username = $1"
+		arg = user.Username
+	} else {
+		query = "SELECT id, username, password FROM auth.user WHERE id = $1"
+		arg = user.Id.String()
+	}
+
+	if err := r.c.connPool.QueryRowContext(ctx, query, arg).Scan(&user.Id, &user.Username, &user.Password); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (usr *model.User, err error) {
@@ -72,7 +89,8 @@ func (r *userRepository) LoginSuccess(ctx context.Context, usr *model.User) erro
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	OmitPassword(usr)
+	stringifyUsr, err := json.Marshal(usr)
 	if err != nil {
 		return err
 	}
@@ -100,7 +118,8 @@ func (r *userRepository) LogoutUser(ctx context.Context, usr *model.User) error 
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	OmitPassword(usr)
+	stringifyUsr, err := json.Marshal(usr)
 	if err != nil {
 		return err
 	}
@@ -132,7 +151,8 @@ func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error 
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	stringifyUsr, err := json.Marshal(omitPassword(usr))
+	OmitPassword(usr)
+	stringifyUsr, err := json.Marshal(usr)
 	if err != nil {
 		return err
 	}
@@ -158,8 +178,6 @@ func (r *userRepository) CreateUser(ctx context.Context, usr *model.User) error 
 }
 
 // creates a copy of the user with the password field set to ""
-func omitPassword(usr *model.User) model.User {
-	usrCopy := *usr
-	usrCopy.Password = ""
-	return usrCopy
+func OmitPassword(usr *model.User) {
+	usr.Password = ""
 }

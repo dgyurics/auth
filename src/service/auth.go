@@ -14,7 +14,8 @@ type AuthService interface {
 	Create(ctx context.Context, usr *model.User) error
 	Logout(ctx context.Context, usr *model.User) error
 	Remove(ctx context.Context, usr *model.User) error
-	Exists(ctx context.Context, usr *model.User) bool // FIXME remove and combine in single transaction with Create
+	Exists(ctx context.Context, usr *model.User) bool // FIXME remove and combine into single transaction with Create
+	Fetch(ctx context.Context, usr *model.User) error
 }
 
 type authService struct {
@@ -68,4 +69,8 @@ func (s *authService) Remove(ctx context.Context, usr *model.User) error {
 	// store event in db
 	// invalidate session
 	return nil
+}
+
+func (s *authService) Fetch(ctx context.Context, usr *model.User) error {
+	return s.userRepository.GetUser(ctx, usr)
 }
