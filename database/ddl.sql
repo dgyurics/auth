@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS "event" (
   "id"         serial PRIMARY KEY not NULL,
   "uuid"       uuid NOT NULL,
   "type"       text NOT NULL,
-  "body"       jsonb NOT NULL,
+  "body"       jsonb,
   "created_at" timestamp without time zone DEFAULT (now() at time zone 'utc')
 );
 

@@ -154,8 +154,7 @@ func (s *httpHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repository.OmitPassword(user)
-	if err := json.NewEncoder(w).Encode(user); err != nil {
+	if err := json.NewEncoder(w).Encode(repository.OmitPassword(user)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

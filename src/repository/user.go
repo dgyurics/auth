@@ -78,8 +78,7 @@ func (r *userRepository) LoginSuccess(ctx context.Context, user *model.User) err
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	OmitPassword(user)
-	stringifyuser, err := json.Marshal(user)
+	stringifyuser, err := json.Marshal(OmitPassword(user))
 	if err != nil {
 		return err
 	}
@@ -100,20 +99,13 @@ func (r *userRepository) LogoutUser(ctx context.Context, user *model.User) error
 		return err
 	}
 
-	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type) VALUES ($1, $2)")
 	if err != nil {
 		return err
 	}
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
-	// stringify user for event body
-	OmitPassword(user)
-	stringifyuser, err := json.Marshal(user)
-	if err != nil {
-		return err
-	}
-
-	if _, err = stmtEvents.Exec(user.Id, USER_LOGOUT_TYPE, stringifyuser); err != nil {
+	if _, err = stmtEvents.Exec(user.Id, USER_LOGOUT_TYPE); err != nil {
 		return err
 	}
 	if err = tx.Commit(); err != nil {
@@ -140,8 +132,7 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 	defer stmtEvents.Close() // https://go.dev/doc/database/prepared-statements
 
 	// stringify user for event body
-	OmitPassword(user)
-	stringifyuser, err := json.Marshal(user)
+	stringifyuser, err := json.Marshal(OmitPassword(user))
 	if err != nil {
 		return err
 	}
@@ -167,6 +158,10 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 }
 
 // creates a copy of the user with the password field set to ""
-func OmitPassword(user *model.User) {
-	user.Password = ""
+func OmitPassword(user *model.User) *model.User {
+	return &model.User{
+		Id:       user.Id,
+		Username: user.Username,
+		Password: "",
+	}
 }
