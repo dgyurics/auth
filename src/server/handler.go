@@ -21,11 +21,9 @@ type httpHandler struct {
 
 func NewHttpHandler() *httpHandler {
 	config := config.New()
-	dbClient := repository.NewDBClient()
-	dbClient.Connect(config.PostgreSql)
 	redisClient := cache.NewClient(config.Redis)
 	return &httpHandler{
-		authService:    service.NewAuthService(dbClient),
+		authService:    service.NewAuthService(repository.NewUserRepository()),
 		sessionService: service.NewSessionService(redisClient),
 	}
 }

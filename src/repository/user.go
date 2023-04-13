@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"auth/src/config"
 	"auth/src/model"
 	"context"
 	"encoding/json"
@@ -8,11 +9,9 @@ import (
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) error
-	LoginSuccess(ctx context.Context, user *model.User) error
-	GetUser(ctx context.Context, user *model.User) error
-	RemoveUserByUsername(username string) error
-	UpdateUser(user *model.User) (*model.User, error)
 	Exists(ctx context.Context, username string) bool
+	GetUser(ctx context.Context, user *model.User) error
+	LoginSuccess(ctx context.Context, user *model.User) error
 	LogoutUser(ctx context.Context, user *model.User) error
 }
 
@@ -20,7 +19,9 @@ type userRepository struct {
 	c *DbClient
 }
 
-func NewUserRepository(c *DbClient) UserRepository {
+func NewUserRepository() UserRepository {
+	c := NewDBClient()
+	c.Connect(config.New().PostgreSql)
 	return &userRepository{c}
 }
 
@@ -50,18 +51,6 @@ func (r *userRepository) GetUser(ctx context.Context, user *model.User) error {
 		return err
 	}
 	return nil
-}
-
-func (r *userRepository) RemoveUserByUsername(userName string) error {
-	// TODO create event
-	_, err := r.c.connPool.Exec("DELETE FROM user WHERE auth.username = $1", userName)
-	return err
-}
-
-func (r *userRepository) UpdateUser(user *model.User) (updateduser *model.User, err error) {
-	// TODO create event
-	_, err = r.c.connPool.Exec("UPDATE auth.user SET username = $1, password = $2 WHERE id = $3", user.Username, user.Password, user.Id)
-	return updateduser, err // FIXME
 }
 
 func (r *userRepository) LoginSuccess(ctx context.Context, user *model.User) error {

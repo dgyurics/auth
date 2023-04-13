@@ -2,7 +2,7 @@ package service
 
 import (
 	"auth/src/model"
-	repo "auth/src/repository"
+	"auth/src/repository"
 	"context"
 
 	"github.com/google/uuid"
@@ -19,12 +19,12 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepository repo.UserRepository
+	userRepository repository.UserRepository
 }
 
-func NewAuthService(c *repo.DbClient) AuthService {
+func NewAuthService(userRepository repository.UserRepository) AuthService {
 	return &authService{
-		userRepository: repo.NewUserRepository(c),
+		userRepository,
 	}
 }
 
