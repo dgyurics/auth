@@ -41,7 +41,7 @@ func (s *sessionService) Fetch(ctx context.Context, sessionId string) (uuid.UUID
 }
 
 func (s *sessionService) Create(ctx context.Context, userId string) (string, error) {
-	// TOOD verify likeliehood of collision
+	// TODO verify likeliehood of collision
 	// TODO prevent user from creating too many sessions
 	sessionId := generateSessionId()
 	return sessionId, s.sessionCache.Set(ctx, sessionId, userId)
