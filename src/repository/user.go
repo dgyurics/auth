@@ -1,10 +1,11 @@
 package repository
 
 import (
-	"auth/src/config"
-	"auth/src/model"
 	"context"
 	"encoding/json"
+
+	"github.com/dgyurics/auth/src/config"
+	"github.com/dgyurics/auth/src/model"
 )
 
 type UserRepository interface {

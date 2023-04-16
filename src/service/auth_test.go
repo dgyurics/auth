@@ -1,18 +1,24 @@
 package service
 
 import (
-	"auth/src/model"
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/dgyurics/auth/src/model"
 	"github.com/stretchr/testify/require"
 )
 
+func cleanup(repo *fakeUserRepository) {
+	repo.reset()
+}
+
 func TestCreate(t *testing.T) {
-	service := NewAuthService(&fakeUserRepository{
+	repository := &fakeUserRepository{
 		users: []*model.User{},
-	})
+	}
+	service := NewAuthService(repository)
+	defer cleanup(repository)
 
 	user := model.User{
 		Username: "test",
@@ -31,7 +37,18 @@ func TestCreate(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	// TODO
+	repository := &fakeUserRepository{
+		users: []*model.User{},
+	}
+	service := NewAuthService(repository)
+	defer cleanup(repository)
+
+	user := model.User{
+		Username: "test",
+		Password: "test",
+	}
+	err := service.Create(context.Background(), &user)
+	require.NoError(t, err)
 }
 
 func TestLogout(t *testing.T) {
@@ -80,4 +97,8 @@ func (f *fakeUserRepository) Exists(ctx context.Context, username string) bool {
 
 func (f *fakeUserRepository) LogoutUser(ctx context.Context, user *model.User) error {
 	return nil
+}
+
+func (f *fakeUserRepository) reset() {
+	f.users = []*model.User{}
 }

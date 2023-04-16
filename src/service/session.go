@@ -1,12 +1,12 @@
 package service
 
 import (
-	"auth/src/cache"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"io"
 
+	"github.com/dgyurics/auth/src/cache"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 )

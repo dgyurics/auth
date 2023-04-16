@@ -1,10 +1,10 @@
 package service
 
 import (
-	"auth/src/model"
-	"auth/src/repository"
 	"context"
 
+	"github.com/dgyurics/auth/src/model"
+	"github.com/dgyurics/auth/src/repository"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )

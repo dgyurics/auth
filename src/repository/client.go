@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"auth/src/config"
 	"database/sql"
 	"fmt"
 	"log"
 
+	"github.com/dgyurics/auth/src/config"
 	_ "github.com/lib/pq"
 )
 

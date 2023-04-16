@@ -1,9 +1,10 @@
 package main
 
 import (
-	"auth/src/config"
-	"auth/src/server"
 	"log"
+
+	"github.com/dgyurics/auth/src/config"
+	"github.com/dgyurics/auth/src/server"
 )
 
 func main() {

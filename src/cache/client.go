@@ -1,8 +1,7 @@
 package cache
 
 import (
-	"auth/src/config"
-
+	"github.com/dgyurics/auth/src/config"
 	"github.com/go-redis/redis/v8"
 )
 

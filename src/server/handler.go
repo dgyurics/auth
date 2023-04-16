@@ -1,15 +1,16 @@
 package server
 
 import (
-	"auth/src/cache"
-	"auth/src/config"
-	"auth/src/model"
-	"auth/src/repository"
-	"auth/src/service"
 	"encoding/json"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/dgyurics/auth/src/cache"
+	"github.com/dgyurics/auth/src/config"
+	"github.com/dgyurics/auth/src/model"
+	"github.com/dgyurics/auth/src/repository"
+	"github.com/dgyurics/auth/src/service"
 )
 
 const SessionCookieName = "X-Session-ID"
