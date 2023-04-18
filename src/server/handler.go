@@ -13,7 +13,7 @@ import (
 	"github.com/dgyurics/auth/src/service"
 )
 
-const SessionCookieName = "X-Session-ID"
+var env = config.New()
 
 type httpHandler struct {
 	authService    service.AuthService
@@ -21,8 +21,7 @@ type httpHandler struct {
 }
 
 func NewHttpHandler() *httpHandler {
-	config := config.New()
-	redisClient := cache.NewClient(config.Redis)
+	redisClient := cache.NewClient(env.Redis)
 	return &httpHandler{
 		authService:    service.NewAuthService(repository.NewUserRepository()),
 		sessionService: service.NewSessionService(redisClient),
@@ -66,7 +65,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, createCookie(SessionCookieName, sessionId))
+	http.SetCookie(w, createCookie(env.Session, sessionId))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -97,14 +96,14 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, createCookie(SessionCookieName, sessionId))
+	http.SetCookie(w, createCookie(env.Session, sessionId))
 	w.WriteHeader(http.StatusOK)
 }
 
 // FIXME should invalidate ALL user sessions,
 // currently only invalidates the session cookie in the request
 func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(SessionCookieName)
+	cookie, err := r.Cookie(env.Session.Name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -134,7 +133,7 @@ func (s *httpHandler) user(w http.ResponseWriter, r *http.Request) {
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
 
 	// extract session from cookie
-	cookie, err := r.Cookie(SessionCookieName)
+	cookie, err := r.Cookie(env.Session.Name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -169,19 +168,30 @@ func expireCookie(cookie *http.Cookie) *http.Cookie {
 	return cookie
 }
 
-// FIXME make configurable
 // TODO Validate contents of cookie to ensure it has not been modified/tampered with.
 // This can be done by adding a message authentication code (MAC) to the cookie,
 // which can be used to verify the integrity of the cookie's contents.
-func createCookie(name, value string) *http.Cookie {
+func createCookie(session config.Session, value string) *http.Cookie {
+	var sameSite http.SameSite
+	switch session.SameSite {
+	case "Strict":
+		sameSite = http.SameSiteStrictMode
+	case "Lax":
+		sameSite = http.SameSiteLaxMode
+	case "None":
+		sameSite = http.SameSiteNoneMode
+	default:
+		sameSite = http.SameSiteDefaultMode
+	}
 	return &http.Cookie{
-		Name:     name,
 		Value:    value,
-		HttpOnly: true,
-		MaxAge:   1800, // 30 minutes
-		// Domain: "",
-		// Path: "",
-		// Secure: true,
-		// SameSite: ,
+		Name:     session.Name,
+		Domain:   session.Domain,
+		Path:     session.Path,
+		MaxAge:   session.MaxAge,
+		Expires:  time.Now().Add(time.Duration(session.MaxAge) * time.Second),
+		Secure:   session.Secure,
+		HttpOnly: session.HttpOnly,
+		SameSite: sameSite,
 	}
 }
