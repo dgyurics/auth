@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -20,11 +21,16 @@ type httpHandler struct {
 	sessionService service.SessionService
 }
 
-func NewHttpHandler() *httpHandler {
+// FIXME refactor by returning interface rather than struct
+func NewHTTPHandler() *httpHandler {
 	redisClient := cache.NewClient(env.Redis)
+	userRepo := repository.NewUserRepository()
+	authService := service.NewAuthService(userRepo)
+	sessionService := service.NewSessionService(redisClient)
+
 	return &httpHandler{
-		authService:    service.NewAuthService(repository.NewUserRepository()),
-		sessionService: service.NewSessionService(redisClient),
+		authService:    authService,
+		sessionService: sessionService,
 	}
 }
 
@@ -33,70 +39,55 @@ func (s *httpHandler) healthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
-	// unmarshal request body
+	// Parse request body into a new user object
 	var user *model.User
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
-	// Strings are UTF-8 encoded, this means each charcter aka rune can be of 1 to 4 bytes long
-	if user.Username == "" || len(user.Username) > 50 || len(user.Password) < 1 || len(user.Password) > 72 {
-		w.WriteHeader(http.StatusBadRequest)
+	// Validate user input
+	if err := s.authService.ValidateUserInput(user); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// ensure username is unique
-	ctx := r.Context()
-	if s.authService.Exists(ctx, user) {
+	if s.authService.Exists(r.Context(), user) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
 	}
-	// create user
-	if err := s.authService.Create(ctx, user); err != nil {
+
+	// Create user and session
+	if err := s.createUserAndSession(r.Context(), w, user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
-	if err != nil {
-		http.Error(w, "failed to create session", http.StatusInternalServerError)
-		return
-	}
-	http.SetCookie(w, createCookie(env.Session, sessionId))
+	// Return success response
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
-	// unmarshal request body
+	// Parse request body into a new user object
 	var user *model.User
-	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// TODO verify username is alphanumeric: ref https://stackoverflow.com/a/38554480/714618
-	if user.Username == "" || len(user.Username) > 50 || len(user.Password) < 1 || len(user.Password) > 72 {
-		w.WriteHeader(http.StatusBadRequest)
+	// Validate user input
+	if err := s.authService.ValidateUserInput(user); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx := r.Context()
-	if err := s.authService.Login(ctx, user); err != nil {
-		log.Default().Printf("login failed: username: %s, err: %s", user.Username, err)
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+	// Login user and create session
+	if err := s.loginUserAndCreateSession(r.Context(), w, user); err != nil {
 		return
 	}
 
-	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
-	if err != nil {
-		http.Error(w, "failed to create session", http.StatusInternalServerError)
-		return
-	}
-	http.SetCookie(w, createCookie(env.Session, sessionId))
+	// Return success response
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -196,4 +187,41 @@ func createCookie(session config.Session, value string) *http.Cookie {
 		HttpOnly: session.HttpOnly,
 		SameSite: sameSite,
 	}
+}
+
+func (s *httpHandler) parseRequestBody(r *http.Request, v interface{}) error {
+	defer r.Body.Close()
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+func (s *httpHandler) loginUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+	// login user
+	if err := s.authService.Login(ctx, user); err != nil {
+		log.Default().Printf("login failed: username: %s, err: %s", user.Username, err)
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		return err
+	}
+
+	// create session
+	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	if err != nil {
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return err
+	}
+	// set session cookie
+	http.SetCookie(w, createCookie(env.Session, sessionId))
+
+	return nil
+}
+
+func (s *httpHandler) createUserAndSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+	if err := s.authService.Create(ctx, user); err != nil {
+		return err
+	}
+	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	if err != nil {
+		return err
+	}
+	http.SetCookie(w, createCookie(env.Session, sessionId))
+	return nil
 }

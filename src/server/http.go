@@ -36,16 +36,19 @@ func NewHttpServer(addr string) *http.Server {
 	r := chi.NewRouter()
 	initMiddleware(r)
 
-	handler := NewHttpHandler()
-
-	r.Get("/health", handler.healthCheck)
-	r.Get("/user", handler.user)
-	r.Post("/login", handler.login)
-	r.Post("/logout", handler.logout)
-	r.Post("/register", handler.registration)
+	handler := NewHTTPHandler()
+	setupRoutes(r, handler)
 
 	return &http.Server{
 		Addr:    addr,
 		Handler: r,
 	}
+}
+
+func setupRoutes(r chi.Router, h *httpHandler) {
+	r.Get("/health", h.healthCheck)
+	r.Get("/user", h.user)
+	r.Post("/login", h.login)
+	r.Post("/logout", h.logout)
+	r.Post("/register", h.registration)
 }
