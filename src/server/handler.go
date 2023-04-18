@@ -135,14 +135,16 @@ func (s *httpHandler) user(w http.ResponseWriter, r *http.Request) {
 	// extract session from cookie
 	cookie, err := r.Cookie(env.Session.Name)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		log.Default().Printf("failed to fetch session cookie: %s", err)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	// verify session is valid and fetch user id
 	userId, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		log.Default().Printf("invalid session: %s", err)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
