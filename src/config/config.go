@@ -41,11 +41,22 @@ type Redis struct {
 	DB       int
 }
 
+type Session struct {
+	Name     string
+	Domain   string
+	Path     string
+	Secure   bool
+	HttpOnly bool
+	SameSite string
+	MaxAge   int
+}
+
 type Config struct {
-	Cors         Cors
-	PostgreSql   PostgreSql
-	Redis        Redis
-	ServerConfig ServerConfig
+	Cors
+	PostgreSql
+	Redis
+	ServerConfig
+	Session
 }
 
 func init() {
@@ -56,7 +67,7 @@ func New() *Config {
 	return &Config{
 		Cors: Cors{
 			AllowOrigin:      getEnv("CORS_ALLOW_ORIGIN", "*"),
-			AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+			AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET, POST, OPTIONS"),
 			AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "*"),
 			AllowCredentials: getEnv("CORS_ALLOW_CREDENTIALS", "true"),
 		},
@@ -77,6 +88,15 @@ func New() *Config {
 		},
 		ServerConfig: ServerConfig{
 			Port: getEnv("PORT", "8080"),
+		},
+		Session: Session{
+			Name:     getEnv("SESSION_NAME", "X-Session-ID"),
+			Domain:   getEnv("SESSION_DOMAIN", ""),
+			Path:     getEnv("SESSION_PATH", "/"),
+			Secure:   getEnvAsBool("SESSION_SECURE", false),
+			HttpOnly: getEnvAsBool("SESSION_HTTP_ONLY", true),
+			SameSite: getEnv("SESSION_SAME_SITE", "Strict"),
+			MaxAge:   getEnvAsInt("SESSION_MAX_AGE", 86400),
 		},
 	}
 }
