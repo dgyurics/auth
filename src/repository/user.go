@@ -104,7 +104,6 @@ func (r *userRepository) LogoutUser(ctx context.Context, user *model.User) error
 	return nil
 }
 
-// FIXME: wrap in single transaction
 func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
 	connPool := r.c.connPool
 	tx, err := connPool.BeginTx(ctx, nil)
