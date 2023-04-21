@@ -9,13 +9,18 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
+var cfg *config.Config
+
+func init() {
+	cfg = config.New()
+}
+
 func cors(next http.Handler) http.Handler {
-	config := config.New().Cors
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", config.AllowOrigin)
-		w.Header().Set("Allow-Control-Allow-Methods", config.AllowMethods)
-		w.Header().Set("Allow-Control-Allow-Headers", config.AllowHeaders)
-		w.Header().Set("Allow-Control-Allow-Credentials", config.AllowCredentials)
+		w.Header().Set("Access-Control-Allow-Origin", cfg.Cors.AllowOrigin)
+		w.Header().Set("Allow-Control-Allow-Methods", cfg.Cors.AllowMethods)
+		w.Header().Set("Allow-Control-Allow-Headers", cfg.Cors.AllowHeaders)
+		w.Header().Set("Allow-Control-Allow-Credentials", cfg.Cors.AllowCredentials)
 		if r.Method == "OPTIONS" {
 			return
 		}
@@ -26,10 +31,7 @@ func cors(next http.Handler) http.Handler {
 func initMiddleware(r *chi.Mux) {
 	r.Use(middleware.Logger)
 	r.Use(cors)
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
-	r.Use(middleware.Timeout(30 * time.Second)) // FIXME make this configurable
+	r.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
 }
 
 func NewHttpServer(addr string) *http.Server {

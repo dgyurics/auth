@@ -51,10 +51,13 @@ type Session struct {
 	MaxAge   int
 }
 
+type RequestTimeout int
+
 type Config struct {
 	Cors
 	PostgreSql
 	Redis
+	RequestTimeout
 	ServerConfig
 	Session
 }
@@ -86,6 +89,7 @@ func New() *Config {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
+		RequestTimeout: RequestTimeout(getEnvAsInt("REQUEST_TIMEOUT", 30)),
 		ServerConfig: ServerConfig{
 			Port: getEnv("PORT", "8080"),
 		},
