@@ -6,6 +6,11 @@ run:
 test:
 	go test ./...
 
+# lint project
+# requires installation of linter: https://github.com/golangci/golangci-lint
+lint:
+	golangci-lint run
+
 # remove go package
 remove-package:
 	go get $(package)@none
