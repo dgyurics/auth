@@ -11,11 +11,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// AuthService is an interface for authentication related operations.
 type AuthService interface {
 	Login(ctx context.Context, user *model.User) error
 	Create(ctx context.Context, user *model.User) error
 	Logout(ctx context.Context, user *model.User) error
-	Remove(ctx context.Context, user *model.User) error
 	Exists(ctx context.Context, user *model.User) bool // FIXME remove and combine into single transaction with Create
 	Fetch(ctx context.Context, user *model.User) error
 	ValidateUserInput(user *model.User) error
@@ -25,6 +25,7 @@ type authService struct {
 	userRepository repository.UserRepository
 }
 
+// NewAuthService creates a new AuthService with the given user repository.
 func NewAuthService(userRepository repository.UserRepository) AuthService {
 	return &authService{
 		userRepository,
@@ -47,12 +48,9 @@ func (s *authService) Create(ctx context.Context, user *model.User) error {
 	if err != nil {
 		return err
 	}
-	user.Id = uuid.New()
+	user.ID = uuid.New()
 	user.Password = string(hashedPass)
-	if err := s.userRepository.CreateUser(ctx, user); err != nil {
-		return err
-	}
-	return nil
+	return s.userRepository.CreateUser(ctx, user)
 }
 
 // Login attempts to authenticate the given user by retrieving their stored password hash and comparing it
@@ -68,20 +66,12 @@ func (s *authService) Login(ctx context.Context, user *model.User) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(userCpy.Password), []byte(user.Password)); err != nil {
 		return err
 	}
-	user.Id = userCpy.Id
+	user.ID = userCpy.ID
 	return s.userRepository.LoginSuccess(ctx, &userCpy)
 }
 
 func (s *authService) Logout(ctx context.Context, user *model.User) error {
 	return s.userRepository.LogoutUser(ctx, user)
-}
-
-func (s *authService) Remove(ctx context.Context, user *model.User) error {
-	// TODO
-	// verify session is valid
-	// store event in db
-	// invalidate session
-	return nil
 }
 
 func (s *authService) Fetch(ctx context.Context, user *model.User) error {

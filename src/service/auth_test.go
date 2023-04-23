@@ -10,6 +10,7 @@ import (
 )
 
 // FIXME this can be refactored a lot...
+const test = "test"
 
 func cleanup(repo *fakeUserRepository) {
 	repo.reset()
@@ -23,17 +24,17 @@ func TestCreate(t *testing.T) {
 	defer cleanup(repository)
 
 	user := model.User{
-		Username: "test",
-		Password: "test",
+		Username: test,
+		Password: test,
 	}
 	err := service.Create(context.Background(), &user)
 	require.NoError(t, err)
 	// verify user assigned id
-	require.NotEmpty(t, user.Id)
+	require.NotEmpty(t, user.ID)
 	// verify user password was hashed
-	require.NotEqual(t, user.Password, "test")
+	require.NotEqual(t, user.Password, test)
 	// verify user.Id is not default uuid
-	require.NotEqual(t, user.Id, "00000000-0000-0000-0000-000000000000")
+	require.NotEqual(t, user.ID, "00000000-0000-0000-0000-000000000000")
 	// using authService.Exists verify user was created
 	require.True(t, service.Exists(context.Background(), &user))
 }
@@ -45,8 +46,8 @@ func TestCreateUserAlreadyExists(t *testing.T) {
 	service := NewAuthService(repository)
 	defer cleanup(repository)
 
-	username := "test"
-	password := "test"
+	username := test
+	password := test
 	err := service.Create(context.Background(), &model.User{
 		Username: username,
 		Password: password,
@@ -69,8 +70,8 @@ func TestLogin(t *testing.T) {
 	service := NewAuthService(repository)
 	defer cleanup(repository)
 
-	username := "test"
-	password := "test"
+	username := test
+	password := test
 	err := service.Create(context.Background(), &model.User{
 		Username: username,
 		Password: password,
@@ -91,8 +92,8 @@ func TestLoginUserNotExist(t *testing.T) {
 	service := NewAuthService(repository)
 	defer cleanup(repository)
 
-	username := "test"
-	password := "test"
+	username := test
+	password := test
 	err := service.Login(context.Background(), &model.User{
 		Username: username,
 		Password: password,
@@ -108,8 +109,8 @@ func TestLogout(t *testing.T) {
 	defer cleanup(repository)
 
 	user := model.User{
-		Username: "test",
-		Password: "test",
+		Username: test,
+		Password: test,
 	}
 	err := service.Create(context.Background(), &user)
 	require.NoError(t, err)
@@ -133,18 +134,18 @@ func (f *fakeUserRepository) CreateUser(ctx context.Context, user *model.User) e
 	return nil
 }
 
-func (f *fakeUserRepository) LoginSuccess(ctx context.Context, user *model.User) error {
+func (f *fakeUserRepository) LoginSuccess(_ context.Context, _ *model.User) error {
 	return nil
 }
 
-func (f *fakeUserRepository) GetUser(ctx context.Context, user *model.User) error {
+func (f *fakeUserRepository) GetUser(_ context.Context, user *model.User) error {
 	for _, u := range f.users {
 		if u.Username == user.Username {
-			user.Id = u.Id
+			user.ID = u.ID
 			user.Password = u.Password
 			return nil
 		}
-		if u.Id == user.Id {
+		if u.ID == user.ID {
 			user.Username = u.Username
 			user.Password = u.Password
 			return nil
@@ -153,7 +154,7 @@ func (f *fakeUserRepository) GetUser(ctx context.Context, user *model.User) erro
 	return errors.New("user not found")
 }
 
-func (f *fakeUserRepository) Exists(ctx context.Context, username string) bool {
+func (f *fakeUserRepository) Exists(_ context.Context, username string) bool {
 	for _, u := range f.users {
 		if u.Username == username {
 			return true

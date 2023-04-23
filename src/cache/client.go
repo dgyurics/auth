@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// NewClient creates a new redis client
 func NewClient(config config.Redis) *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr:     config.Addr,

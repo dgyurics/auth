@@ -3,16 +3,17 @@ package config
 import (
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/joho/godotenv"
 )
 
+// ServerConfig contains configuration values for the server listening port.
 type ServerConfig struct {
 	Port string
 }
 
-type PostgreSql struct {
+// PostgreSQL contains configuration values for the PostgreSQL database.
+type PostgreSQL struct {
 	Dbname              string
 	User                string
 	Password            string
@@ -27,6 +28,7 @@ type PostgreSql struct {
 	// Sslrootcert          string
 }
 
+// Cors contains configuration values for the CORS middleware.
 type Cors struct {
 	AllowOrigin      string
 	AllowMethods     string
@@ -34,6 +36,7 @@ type Cors struct {
 	AllowCredentials string
 }
 
+// Redis contains configuration values for the Redis cache.
 type Redis struct {
 	Addr     string
 	Username string
@@ -41,21 +44,24 @@ type Redis struct {
 	DB       int
 }
 
+// Session contains configuration values for the session.
 type Session struct {
 	Name     string
 	Domain   string
 	Path     string
 	Secure   bool
-	HttpOnly bool
+	HTTPOnly bool
 	SameSite string
 	MaxAge   int
 }
 
+// RequestTimeout contains configuration value for http request timeout.
 type RequestTimeout int
 
+// Config is the container struct for all configuration values.
 type Config struct {
 	Cors
-	PostgreSql
+	PostgreSQL
 	Redis
 	RequestTimeout
 	ServerConfig
@@ -66,6 +72,8 @@ func init() {
 	_ = godotenv.Load()
 }
 
+// New returns a configuration struct with default values
+// and environment variables overriding the defaults.
 func New() *Config {
 	return &Config{
 		Cors: Cors{
@@ -74,7 +82,7 @@ func New() *Config {
 			AllowHeaders:     getEnv("CORS_ALLOW_HEADERS", "*"),
 			AllowCredentials: getEnv("CORS_ALLOW_CREDENTIALS", "true"),
 		},
-		PostgreSql: PostgreSql{
+		PostgreSQL: PostgreSQL{
 			Dbname:              getEnv("POSTGRES_DB", "auth"),
 			User:                getEnv("POSTGRES_USER", "postgres"),
 			Password:            getEnv("POSTGRES_PASSWORD", "postgres"),
@@ -98,7 +106,7 @@ func New() *Config {
 			Domain:   getEnv("SESSION_DOMAIN", ""),
 			Path:     getEnv("SESSION_PATH", "/"),
 			Secure:   getEnvAsBool("SESSION_SECURE", false),
-			HttpOnly: getEnvAsBool("SESSION_HTTP_ONLY", true),
+			HTTPOnly: getEnvAsBool("SESSION_HTTP_ONLY", true),
 			SameSite: getEnv("SESSION_SAME_SITE", "Strict"),
 			MaxAge:   getEnvAsInt("SESSION_MAX_AGE", 86400),
 		},
@@ -126,13 +134,4 @@ func getEnvAsBool(name string, defaultVal bool) bool {
 		return val
 	}
 	return defaultVal
-}
-
-func getEnvAsSlice(name string, defaultVal []string, sep string) []string {
-	valStr := getEnv(name, "")
-	if valStr == "" {
-		return defaultVal
-	}
-	val := strings.Split(valStr, sep)
-	return val
 }

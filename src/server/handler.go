@@ -16,29 +16,32 @@ import (
 
 var env = config.New()
 
-type httpHandler struct {
+// HTTPHandler is a struct that contains all the dependencies necessary
+// to handle HTTP requests.
+type HTTPHandler struct {
 	authService    service.AuthService
 	sessionService service.SessionService
 }
 
+// NewHTTPHandler returns a new instance of httpHandler
 // FIXME refactor by returning interface rather than struct
-func NewHTTPHandler() *httpHandler {
+func NewHTTPHandler() *HTTPHandler {
 	redisClient := cache.NewClient(env.Redis)
 	userRepo := repository.NewUserRepository()
 	authService := service.NewAuthService(userRepo)
 	sessionService := service.NewSessionService(redisClient)
 
-	return &httpHandler{
+	return &HTTPHandler{
 		authService:    authService,
 		sessionService: sessionService,
 	}
 }
 
-func (s *httpHandler) healthCheck(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 	// Parse request body into a new user object
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
@@ -68,7 +71,7 @@ func (s *httpHandler) registration(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	// Parse request body into a new user object
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
@@ -93,7 +96,7 @@ func (s *httpHandler) login(w http.ResponseWriter, r *http.Request) {
 
 // FIXME should invalidate ALL user sessions,
 // currently only invalidates the session cookie in the request
-func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(env.Session.Name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -102,44 +105,47 @@ func (s *httpHandler) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, expireCookie(cookie))
 
 	// generate logout event
-	userId, err := s.sessionService.Fetch(r.Context(), cookie.Value)
+	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err = s.authService.Logout(r.Context(), &model.User{Id: userId}); err != nil {
+	if err = s.authService.Logout(r.Context(), &model.User{ID: userID}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// remove session from redis
-	s.sessionService.Remove(r.Context(), cookie.Value)
+	if err = s.sessionService.Remove(r.Context(), cookie.Value); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
 // secure endpoint which retrieves user information
-func (s *httpHandler) user(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 	// ensure session is a valid 128+ bits long
 	// https://owasp.org/www-community/attacks/Session_hijacking_attack
 
 	// extract session from cookie
 	cookie, err := r.Cookie(env.Session.Name)
 	if err != nil {
-		log.Default().Printf("failed to fetch session cookie: %s", err)
+		log.Printf("failed to fetch session cookie: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	// verify session is valid and fetch user id
-	userId, err := s.sessionService.Fetch(r.Context(), cookie.Value)
+	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
-		log.Default().Printf("invalid session: %s", err)
+		log.Printf("invalid session: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	user := &model.User{Id: userId}
+	user := &model.User{ID: userID}
 	if err = s.authService.Fetch(r.Context(), user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -184,44 +190,43 @@ func createCookie(session config.Session, value string) *http.Cookie {
 		MaxAge:   session.MaxAge,
 		Expires:  time.Now().Add(time.Duration(session.MaxAge) * time.Second),
 		Secure:   session.Secure,
-		HttpOnly: session.HttpOnly,
+		HttpOnly: session.HTTPOnly,
 		SameSite: sameSite,
 	}
 }
 
-func (s *httpHandler) parseRequestBody(r *http.Request, v interface{}) error {
-	defer r.Body.Close()
+func (s *HTTPHandler) parseRequestBody(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func (s *httpHandler) loginUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+func (s *HTTPHandler) loginUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
 	// login user
 	if err := s.authService.Login(ctx, user); err != nil {
-		log.Default().Printf("login failed: username: %s, err: %s", user.Username, err)
+		log.Printf("login failed: username: %s, err: %s", user.Username, err)
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return err
 	}
 
 	// create session
-	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	sessionID, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return err
 	}
 	// set session cookie
-	http.SetCookie(w, createCookie(env.Session, sessionId))
+	http.SetCookie(w, createCookie(env.Session, sessionID))
 
 	return nil
 }
 
-func (s *httpHandler) createUserAndSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+func (s *HTTPHandler) createUserAndSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
 	if err := s.authService.Create(ctx, user); err != nil {
 		return err
 	}
-	sessionId, err := s.sessionService.Create(ctx, user.Id.String())
+	sessionID, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, createCookie(env.Session, sessionId))
+	http.SetCookie(w, createCookie(env.Session, sessionID))
 	return nil
 }

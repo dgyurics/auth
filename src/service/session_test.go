@@ -7,12 +7,12 @@ import (
 )
 
 func TestGenerateSessionId(t *testing.T) {
-	unqSessionId := generateSessionId()
-	unqSessionIdTwo := generateSessionId()
+	unqSessionID := generateSessionID()
+	unqSessionIDTwo := generateSessionID()
 	require.Condition(t, func() bool {
-		return len(unqSessionId) > 0 && len(unqSessionIdTwo) > 0
+		return len(unqSessionID) > 0 && len(unqSessionIDTwo) > 0
 	}, "session id should not be empty")
 	require.Condition(t, func() bool {
-		return unqSessionId != unqSessionIdTwo
+		return unqSessionID != unqSessionIDTwo
 	}, "session ids should be unique")
 }

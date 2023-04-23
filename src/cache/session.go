@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// SessionCache is an interface for interacting with Redis.
 type SessionCache interface {
 	Set(ctx context.Context, key string, value string) error
 	Get(ctx context.Context, key string) (string, error)
@@ -16,7 +17,8 @@ type sessionCache struct {
 	c *redis.Client
 }
 
-func NewSessionCache(c *redis.Client) *sessionCache {
+// NewSessionCache returns a new instance of SessionCache.
+func NewSessionCache(c *redis.Client) SessionCache {
 	return &sessionCache{c: c}
 }
 

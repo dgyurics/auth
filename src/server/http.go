@@ -34,7 +34,8 @@ func initMiddleware(r *chi.Mux) {
 	r.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
 }
 
-func NewHttpServer(addr string) *http.Server {
+// NewHTTPServer returns a new http server
+func NewHTTPServer(addr string) *http.Server {
 	r := chi.NewRouter()
 	initMiddleware(r)
 
@@ -47,7 +48,7 @@ func NewHttpServer(addr string) *http.Server {
 	}
 }
 
-func setupRoutes(r chi.Router, h *httpHandler) {
+func setupRoutes(r chi.Router, h *HTTPHandler) {
 	r.Get("/health", h.healthCheck)
 	r.Get("/user", h.user)
 	r.Post("/login", h.login)

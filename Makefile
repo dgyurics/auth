@@ -1,10 +1,14 @@
+# build project
+build:
+	go build -v ./...
+
 # run project in development mode
 run:
 	go run src/main.go
 
 # test project
 test:
-	go test ./...
+	go test -v -race ./...
 
 # lint project
 # requires installation of linter: https://github.com/golangci/golangci-lint
