@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/dgyurics/auth/src/config"
-	"github.com/dgyurics/auth/src/model"
+	"github.com/dgyurics/auth/auth-server/config"
+	"github.com/dgyurics/auth/auth-server/model"
 )
 
 // TODO Create a transaction manager abstraction to encapsulate the transaction logic.

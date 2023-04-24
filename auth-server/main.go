@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/dgyurics/auth/src/config"
-	"github.com/dgyurics/auth/src/server"
+	"github.com/dgyurics/auth/auth-server/config"
+	"github.com/dgyurics/auth/auth-server/server"
 )
 
 func main() {

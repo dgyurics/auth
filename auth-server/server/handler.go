@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dgyurics/auth/src/cache"
-	"github.com/dgyurics/auth/src/config"
-	"github.com/dgyurics/auth/src/model"
-	"github.com/dgyurics/auth/src/repository"
-	"github.com/dgyurics/auth/src/service"
+	"github.com/dgyurics/auth/auth-server/cache"
+	"github.com/dgyurics/auth/auth-server/config"
+	"github.com/dgyurics/auth/auth-server/model"
+	"github.com/dgyurics/auth/auth-server/repository"
+	"github.com/dgyurics/auth/auth-server/service"
 )
 
 var env = config.New()

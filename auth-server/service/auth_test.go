@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dgyurics/auth/src/model"
+	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/stretchr/testify/require"
 )
 

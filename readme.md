@@ -1,11 +1,11 @@
 [![Tests](https://github.com/dgyurics/auth/actions/workflows/tests.yaml/badge.svg)](https://github.com/dgyurics/auth/actions/workflows/tests.yaml)
 [![Report Card](https://goreportcard.com/badge/github.com/dgyurics/auth)](https://goreportcard.com/report/github.com/dgyurics/auth)
-<!-- [![Go Reference](https://pkg.go.dev/badge/github.com/dgyurics/auth.svg)](https://pkg.go.dev/github.com/dgyurics/auth) -->
-## Instructions coming soon ##
 
-A registration & login application.
-Simple, fault-tolerant, and distributed.  
-Minimal configuration necessary.
+### Simple, fault-tolerant, distributed authentication service.</br></br>
+`api-gateway`: nginx configured with auth request module. It is the entry point for all requests.
 </br>
-
-_Designed to be used alongise NGINX http auth request module._
+`auth-server`: authentication server which api-gateway calls using subrequests.
+</br>
+`secure-server`: http server accessible to authorized users only.
+</br></br>
+_Note: Servers all use REST for data transfer. This is a work in progress. It is not ready for production use._

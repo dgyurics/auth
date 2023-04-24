@@ -5,8 +5,8 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/dgyurics/auth/src/model"
-	"github.com/dgyurics/auth/src/repository"
+	"github.com/dgyurics/auth/auth-server/model"
+	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )

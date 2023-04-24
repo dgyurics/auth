@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"io"
 
-	"github.com/dgyurics/auth/src/cache"
+	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 )

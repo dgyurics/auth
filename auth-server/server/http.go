@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dgyurics/auth/src/config"
+	"github.com/dgyurics/auth/auth-server/config"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )

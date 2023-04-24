@@ -1,4 +1,4 @@
-module github.com/dgyurics/auth
+module github.com/dgyurics/auth/auth-server
 
 go 1.20
 

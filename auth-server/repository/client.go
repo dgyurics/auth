@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dgyurics/auth/src/config"
+	"github.com/dgyurics/auth/auth-server/config"
 	_ "github.com/lib/pq" // driver for PostgreSQL that provides an implementation of the database/sql package
 )
 

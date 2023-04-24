@@ -1,25 +1,3 @@
-# build project
-build:
-	go build -v ./...
-
-# run project in development mode
-run:
-	go run src/main.go
-
-# test project
-test:
-	go test -v -race ./...
-
-# lint project
-# requires installation of linter: https://github.com/golangci/golangci-lint
-lint:
-	golangci-lint run
-
-# remove go package
-remove-package:
-	go get $(package)@none
-	go clean -cache -modcache
-
 # start single docker container
 run-container:
 	docker-compose up --no-deps $(container)
