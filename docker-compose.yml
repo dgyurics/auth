@@ -4,15 +4,17 @@ services:
   nginx:
     image: nginx
     build:
-      context: ./nginx/
+      context: ./api-gateway/
     container_name: nginx
     restart: always
     ports:
-      - "3001:80"
+      - "3005:80"
     depends_on:
       - auth
     networks:
-      - proxy-network
+      - public-network
+      - secure-network
+      - auth-network
 
   auth:
     image: auth
@@ -23,15 +25,14 @@ services:
     ports:
       - "3000:8080" # changing internal port requires changing port in env_file
     env_file:
-      - .docker.env
+      - ./auth-server/.docker.env
     depends_on:
       - postgres
       - redis
     networks:
-      - proxy-network
       - auth-network
 
-  auth:
+  secure:
     image: secure
     build:
       context: ./secure-server/
@@ -39,14 +40,8 @@ services:
     restart: always
     ports:
       - "3001:8080" # changing internal port requires changing port in env_file
-    env_file:
-      - .docker.env
-    depends_on:
-      - postgres
-      - redis
     networks:
-      - proxy-network
-      - auth-network
+      - secure-network
 
   postgres:
     image: postgres:12.9
@@ -77,10 +72,15 @@ services:
       - auth-network
 
 networks:
-  proxy-network:
+  public-network:
     driver: bridge
+    internal: false
+  secure-network:
+    driver: bridge
+    internal: true
   auth-network:
     driver: bridge
+    internal: true
 
 volumes:
   pg_data:

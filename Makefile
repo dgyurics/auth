@@ -1,6 +1,6 @@
 # start single docker container
 run-container:
-	docker-compose up --no-deps $(container)
+	docker-compose up -d --no-deps $(container)
 
 # start multiple docker containers of the same image
 # container_name & host port must be omitted from docker-compose.yml
