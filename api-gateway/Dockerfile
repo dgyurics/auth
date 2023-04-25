@@ -1,5 +1,5 @@
 # FROM nginx:stable-alpine3.17
-FROM nginx:latest
+FROM nginx:1.21.3
 
 # Copy the nginx configuration file to the container
 COPY nginx.conf /etc/nginx/nginx.conf
