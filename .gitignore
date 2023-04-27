@@ -1,5 +1,7 @@
 # Binaries for programs and plugins
 auth
+authserver
+server
 *.exe
 *.exe~
 *.dll

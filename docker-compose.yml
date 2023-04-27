@@ -5,10 +5,9 @@ services:
     image: nginx
     build:
       context: ./api-gateway/
-    container_name: nginx
-    restart: always
+    restart: "no"
     ports:
-      - "3005:80"
+      - "3000:80"
     depends_on:
       - auth
     networks:
@@ -20,28 +19,31 @@ services:
     image: auth
     build:
       context: ./auth-server/
-    container_name: auth
-    restart: always
-    ports:
-      - "3000:8080" # changing internal port requires changing port in env_file
     env_file:
-      - ./auth-server/.docker.env
+      - ./auth-server/.env
     depends_on:
       - postgres
       - redis
     networks:
       - auth-network
+    deploy:
+      mode: replicated
+      replicas: 3
+      restart_policy:
+        condition: on-failure
 
   secure:
     image: secure
     build:
       context: ./secure-server/
-    container_name: secure
     restart: always
-    ports:
-      - "3001:8080" # changing internal port requires changing port in env_file
     networks:
       - secure-network
+    deploy:
+      mode: replicated
+      replicas: 3
+      restart_policy:
+        condition: on-failure
 
   postgres:
     image: postgres:12.9

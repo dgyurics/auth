@@ -16,7 +16,7 @@ RUN go mod download && go mod verify
 COPY . ./
 
 # Build the binary.
-RUN go build -v -o server main.go
+RUN go build -v -o server cmd/main.go
 
 # Use the official Debian slim image for a lean production container.
 # https://hub.docker.com/_/debian
@@ -31,6 +31,8 @@ WORKDIR /app
 
 # Copy the binary to the production image from the builder stage.
 COPY --from=builder /app/server .
+
+EXPOSE 8080
 
 # Run the web service on container startup.
 CMD ["./server"]
