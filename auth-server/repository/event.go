@@ -6,6 +6,7 @@ import (
 	"github.com/dgyurics/auth/auth-server/model"
 )
 
+// EventRepository is an interface for interacting with the event table
 type EventRepository interface {
 	CreateEvent(ctx context.Context, event *model.Event) error
 }
@@ -14,6 +15,7 @@ type eventDBRepo struct {
 	c *DbClient
 }
 
+// NewEventRepository creates a new event repository
 func NewEventRepository(c *DbClient) EventRepository {
 	return &eventDBRepo{c}
 }

@@ -39,7 +39,7 @@ func NewAuthService(
 }
 
 func (s *authService) Exists(ctx context.Context, user *model.User) bool {
-	return s.userRepository.Exists(ctx, user.Username)
+	return s.userRepository.ExistsUser(ctx, user.Username)
 }
 
 // Create creates a new user with a unique UUID and a bcrypt-hashed password.
@@ -75,27 +75,27 @@ func (s *authService) Login(ctx context.Context, user *model.User) error {
 	user.ID = userCpy.ID
 
 	// stringify user for event body
-	stringifyuser, err := json.Marshal(model.OmitPassword(user))
+	userEncoded, err := json.Marshal(model.OmitPassword(user))
 	if err != nil {
 		return err
 	}
 	return s.eventRepository.CreateEvent(ctx, &model.Event{
 		UUID: user.ID,
 		Type: model.LoggedIn,
-		Body: string(stringifyuser),
+		Body: userEncoded,
 	})
 }
 
 func (s *authService) Logout(ctx context.Context, user *model.User) error {
 	// stringify user for event body
-	stringifyuser, err := json.Marshal(model.OmitPassword(user))
+	userEncoded, err := json.Marshal(model.OmitPassword(user))
 	if err != nil {
 		return err
 	}
 	return s.eventRepository.CreateEvent(ctx, &model.Event{
 		UUID: user.ID,
 		Type: model.LoggedOut,
-		Body: string(stringifyuser),
+		Body: userEncoded,
 	})
 }
 

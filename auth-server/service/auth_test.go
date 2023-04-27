@@ -180,7 +180,7 @@ func (f *fakeUserRepository) GetUser(_ context.Context, user *model.User) error 
 	return errors.New("user not found")
 }
 
-func (f *fakeUserRepository) Exists(_ context.Context, username string) bool {
+func (f *fakeUserRepository) ExistsUser(_ context.Context, username string) bool {
 	for _, u := range f.users {
 		if u.Username == username {
 			return true
@@ -190,7 +190,7 @@ func (f *fakeUserRepository) Exists(_ context.Context, username string) bool {
 }
 
 func (f *fakeUserRepository) LogoutUser(ctx context.Context, user *model.User) error {
-	if !f.Exists(ctx, user.Username) {
+	if !f.ExistsUser(ctx, user.Username) {
 		return errors.New("user not found")
 	}
 	return nil
@@ -204,7 +204,7 @@ type fakeEventRepository struct {
 	events []*model.Event
 }
 
-func (f *fakeEventRepository) CreateEvent(ctx context.Context, event *model.Event) error {
+func (f *fakeEventRepository) CreateEvent(_ context.Context, event *model.Event) error {
 	f.events = append(f.events, event)
 	return nil
 }

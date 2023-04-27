@@ -9,13 +9,10 @@ import (
 	"github.com/dgyurics/auth/auth-server/model"
 )
 
-// TODO Create a transaction manager abstraction to encapsulate the transaction logic.
-// reference: https://dev.to/techschoolguru/a-clean-way-to-implement-database-transaction-in-golang-2ba
-
 // UserRepository is an interface for interacting with the user table
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) error
-	Exists(ctx context.Context, username string) bool
+	ExistsUser(ctx context.Context, username string) bool
 	GetUser(ctx context.Context, user *model.User) error
 }
 
@@ -28,7 +25,7 @@ func NewUserRepository(c *DbClient) UserRepository {
 	return &userRepository{c}
 }
 
-func (r *userRepository) Exists(ctx context.Context, username string) bool {
+func (r *userRepository) ExistsUser(ctx context.Context, username string) bool {
 	if err := r.GetUser(ctx, &model.User{Username: username}); err != nil {
 		return false
 	}
@@ -63,13 +60,13 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 	defer closeStmt(stmtEvents)
 
 	// stringify user for event body
-	stringifyuser, err := json.Marshal(model.OmitPassword(user))
+	userEncoded, err := json.Marshal(model.OmitPassword(user))
 	if err != nil {
 		rollback(tx)
 		return err
 	}
 
-	_, err = stmtEvents.Exec(user.ID, model.AccountCreated, stringifyuser)
+	_, err = stmtEvents.Exec(user.ID, model.AccountCreated, userEncoded)
 	if err != nil {
 		rollback(tx)
 		return err
