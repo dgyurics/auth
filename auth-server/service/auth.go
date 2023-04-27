@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 
@@ -22,13 +23,18 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepository repository.UserRepository
+	userRepository  repository.UserRepository
+	eventRepository repository.EventRepository
 }
 
-// NewAuthService creates a new AuthService with the given user repository.
-func NewAuthService(userRepository repository.UserRepository) AuthService {
+// NewAuthService creates a new AuthService with the given user + event repositories.
+func NewAuthService(
+	userRepository repository.UserRepository,
+	eventRepository repository.EventRepository,
+) AuthService {
 	return &authService{
 		userRepository,
+		eventRepository,
 	}
 }
 
@@ -67,11 +73,30 @@ func (s *authService) Login(ctx context.Context, user *model.User) error {
 		return err
 	}
 	user.ID = userCpy.ID
-	return s.userRepository.LoginSuccess(ctx, &userCpy)
+
+	// stringify user for event body
+	stringifyuser, err := json.Marshal(model.OmitPassword(user))
+	if err != nil {
+		return err
+	}
+	return s.eventRepository.CreateEvent(ctx, &model.Event{
+		UUID: user.ID,
+		Type: model.LoggedIn,
+		Body: string(stringifyuser),
+	})
 }
 
 func (s *authService) Logout(ctx context.Context, user *model.User) error {
-	return s.userRepository.LogoutUser(ctx, user)
+	// stringify user for event body
+	stringifyuser, err := json.Marshal(model.OmitPassword(user))
+	if err != nil {
+		return err
+	}
+	return s.eventRepository.CreateEvent(ctx, &model.Event{
+		UUID: user.ID,
+		Type: model.LoggedOut,
+		Body: string(stringifyuser),
+	})
 }
 
 func (s *authService) Fetch(ctx context.Context, user *model.User) error {

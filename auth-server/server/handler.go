@@ -27,9 +27,13 @@ type HTTPHandler struct {
 // FIXME refactor by returning interface rather than struct
 func NewHTTPHandler() *HTTPHandler {
 	redisClient := cache.NewClient(env.Redis)
-	userRepo := repository.NewUserRepository()
-	authService := service.NewAuthService(userRepo)
 	sessionService := service.NewSessionService(redisClient)
+
+	sqlClient := repository.NewDBClient()
+	sqlClient.Connect(config.New().PostgreSQL)
+	userRepo := repository.NewUserRepository(sqlClient)
+	eventRepo := repository.NewEventRepository(sqlClient)
+	authService := service.NewAuthService(userRepo, eventRepo)
 
 	return &HTTPHandler{
 		authService:    authService,
@@ -151,7 +155,7 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(repository.OmitPassword(user)); err != nil {
+	if err := json.NewEncoder(w).Encode(model.OmitPassword(user)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

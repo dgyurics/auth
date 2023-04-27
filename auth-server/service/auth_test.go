@@ -12,16 +12,18 @@ import (
 // FIXME this can be refactored a lot...
 const test = "test"
 
-func cleanup(repo *fakeUserRepository) {
-	repo.reset()
-}
-
 func TestCreate(t *testing.T) {
-	repository := &fakeUserRepository{
+	userRepo := &fakeUserRepository{
 		users: []*model.User{},
 	}
-	service := NewAuthService(repository)
-	defer cleanup(repository)
+	eventRepo := &fakeEventRepository{
+		events: []*model.Event{},
+	}
+	service := NewAuthService(userRepo, eventRepo)
+
+	// TODO refactor, use generics?
+	defer userRepo.reset()
+	defer eventRepo.reset()
 
 	user := model.User{
 		Username: test,
@@ -40,11 +42,17 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateUserAlreadyExists(t *testing.T) {
-	repository := &fakeUserRepository{
+	userRepo := &fakeUserRepository{
 		users: []*model.User{},
 	}
-	service := NewAuthService(repository)
-	defer cleanup(repository)
+	eventRepo := &fakeEventRepository{
+		events: []*model.Event{},
+	}
+	service := NewAuthService(userRepo, eventRepo)
+
+	// TODO refactor, use generics?
+	defer userRepo.reset()
+	defer eventRepo.reset()
 
 	username := test
 	password := test
@@ -64,11 +72,17 @@ func TestCreateUserAlreadyExists(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	repository := &fakeUserRepository{
+	userRepo := &fakeUserRepository{
 		users: []*model.User{},
 	}
-	service := NewAuthService(repository)
-	defer cleanup(repository)
+	eventRepo := &fakeEventRepository{
+		events: []*model.Event{},
+	}
+	service := NewAuthService(userRepo, eventRepo)
+
+	// TODO refactor, use generics?
+	defer userRepo.reset()
+	defer eventRepo.reset()
 
 	username := test
 	password := test
@@ -86,11 +100,17 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginUserNotExist(t *testing.T) {
-	repository := &fakeUserRepository{
+	userRepo := &fakeUserRepository{
 		users: []*model.User{},
 	}
-	service := NewAuthService(repository)
-	defer cleanup(repository)
+	eventRepo := &fakeEventRepository{
+		events: []*model.Event{},
+	}
+	service := NewAuthService(userRepo, eventRepo)
+
+	// TODO refactor, use generics?
+	defer userRepo.reset()
+	defer eventRepo.reset()
 
 	username := test
 	password := test
@@ -102,11 +122,17 @@ func TestLoginUserNotExist(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
-	repository := &fakeUserRepository{
+	userRepo := &fakeUserRepository{
 		users: []*model.User{},
 	}
-	service := NewAuthService(repository)
-	defer cleanup(repository)
+	eventRepo := &fakeEventRepository{
+		events: []*model.Event{},
+	}
+	service := NewAuthService(userRepo, eventRepo)
+
+	// TODO refactor, use generics?
+	defer userRepo.reset()
+	defer eventRepo.reset()
 
 	user := model.User{
 		Username: test,
@@ -172,4 +198,17 @@ func (f *fakeUserRepository) LogoutUser(ctx context.Context, user *model.User) e
 
 func (f *fakeUserRepository) reset() {
 	f.users = nil
+}
+
+type fakeEventRepository struct {
+	events []*model.Event
+}
+
+func (f *fakeEventRepository) CreateEvent(ctx context.Context, event *model.Event) error {
+	f.events = append(f.events, event)
+	return nil
+}
+
+func (f *fakeEventRepository) reset() {
+	f.events = nil
 }
