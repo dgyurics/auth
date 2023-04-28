@@ -9,9 +9,11 @@ This project consists of three services: `api-gateway`, `auth-server`, and `secu
 
 To run the application locally, follow these steps:
 
-1. From the root directory, run the command `docker-compose up` to start the required services.
+1. From the root directory, run the command `docker compose build` to build the required images.
 
-2. In a separate terminal, create an account/user by running the following command:
+2. From the root directory, run the command `docker compose -p auth up -d` to start the required services.
+
+3. In a separate terminal, create an account/user by running the following command:
    ```
    curl --location --request POST 'localhost:3000/auth/register' \
    --header 'Content-Type: application/json' \
@@ -22,7 +24,7 @@ To run the application locally, follow these steps:
    ```
    This command will return a session cookie and store it in a file called `cookies.txt`.
 
-3. Use the cookie obtained in the previous step to access the secure server by running the following command:
+4. Use the cookie obtained in the previous step to access the secure server by running the following command:
    ```
    curl --location --request GET 'localhost:3000/api/echo' \
    --cookie cookies.txt \
