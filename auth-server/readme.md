@@ -31,13 +31,13 @@ To install and run the server, follow these steps:
 4. Build the server:
 
    ```
-   go build
+   go build -v -o authserver ./cmd/main.go
    ```
 
 5. Run the server:
 
    ```
-   ./auth-server
+   ./authserver
    ```
 
    The server will be listening on port 8080 by default.

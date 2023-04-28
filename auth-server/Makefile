@@ -1,10 +1,10 @@
 # build project
 build:
-	go build -v ./...
+	go build -v -o authserver ./cmd/main.go
 
 # run in development mode
 run:
-	go run github.com/dgyurics/auth/auth-server
+	go run ./cmd/main.go
 
 # run tests
 test:
