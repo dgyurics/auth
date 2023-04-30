@@ -46,13 +46,11 @@ services:
         condition: on-failure
 
   postgres:
-    image: postgres:12.9
+    image: postgres
+    build:
+      context: ./auth-server/database/
     container_name: postgres
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=auth    
+    restart: "no"
     ports:
       - "5432:5432"
     volumes:

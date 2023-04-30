@@ -23,7 +23,6 @@ type userRepository struct {
 // NewUserRepository creates a new user repository
 func NewUserRepository(c *DbClient) UserRepository {
 	repo := &userRepository{c}
-	repo.initTable()
 	return repo
 }
 
@@ -99,20 +98,5 @@ func rollback(tx *sql.Tx) {
 func closeStmt(stmt *sql.Stmt) {
 	if err := stmt.Close(); err != nil {
 		log.Println(err)
-	}
-}
-
-func (r *userRepository) initTable() {
-	_, err := r.c.connPool.Exec("CREATE SCHEMA IF NOT EXISTS auth")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = r.c.connPool.Exec(`CREATE TABLE IF NOT EXISTS "auth"."user" (
-		"id"       uuid	PRIMARY KEY,
-		"username" varchar(50) UNIQUE NOT NULL,
-		"password" char(60) NOT NULL
-	);`)
-	if err != nil {
-		log.Fatal(err)
 	}
 }
