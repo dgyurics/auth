@@ -48,7 +48,7 @@ func NewHTTPServer(addr string) *http.Server {
 	}
 }
 
-func setupRoutes(r chi.Router, h *HTTPHandler) {
+func setupRoutes(r chi.Router, h RequestHandler) {
 	r.Get("/health", h.healthCheck)
 	r.Get("/user", h.user)
 	r.Post("/login", h.login)

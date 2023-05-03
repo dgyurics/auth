@@ -16,6 +16,16 @@ import (
 
 var env = config.New()
 
+// RequestHandler is an interface that defines the methods
+// that are necessary to handle HTTP requests.
+type RequestHandler interface {
+	healthCheck(w http.ResponseWriter, r *http.Request)
+	registration(w http.ResponseWriter, r *http.Request)
+	login(w http.ResponseWriter, r *http.Request)
+	logout(w http.ResponseWriter, r *http.Request)
+	user(w http.ResponseWriter, r *http.Request)
+}
+
 // HTTPHandler is a struct that contains all the dependencies necessary
 // to handle HTTP requests.
 type HTTPHandler struct {
@@ -25,7 +35,7 @@ type HTTPHandler struct {
 
 // NewHTTPHandler returns a new instance of httpHandler
 // FIXME refactor by returning interface rather than struct
-func NewHTTPHandler() *HTTPHandler {
+func NewHTTPHandler() RequestHandler {
 	redisClient := cache.NewClient(env.Redis)
 	sessionService := service.NewSessionService(redisClient)
 
