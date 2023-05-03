@@ -21,3 +21,7 @@ run-container:
 # rebuild docker container
 rebuild-container:
 	docker compose build --no-cache $(container)
+
+# stop docker containers which match the given name
+stop-containers:
+	docker kill $$(docker ps -q -f "name=$(container)")
