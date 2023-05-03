@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"time"
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/go-redis/redis/v8"
@@ -13,7 +14,8 @@ import (
 
 // SessionService is an interface for session/Redis related operations.
 type SessionService interface {
-	Create(ctx context.Context, userID string) (string, error)
+	Create(ctx context.Context, userID string, expiration time.Duration) (string, error)
+	Extend(ctx context.Context, userID, sessionID string, expiration time.Duration) error
 	Fetch(ctx context.Context, sessionID string) (uuid.UUID, error)
 	Remove(ctx context.Context, sessionID string) error
 }
@@ -41,11 +43,14 @@ func (s *sessionService) Fetch(ctx context.Context, sessionID string) (uuid.UUID
 	return uuid.Parse(userID)
 }
 
-func (s *sessionService) Create(ctx context.Context, userID string) (string, error) {
-	// TODO verify likeliehood of collision
+func (s *sessionService) Create(ctx context.Context, userID string, expiration time.Duration) (string, error) {
 	// TODO prevent user from creating too many sessions
 	sessionID := generateSessionID()
-	return sessionID, s.sessionCache.Set(ctx, sessionID, userID)
+	return sessionID, s.sessionCache.Set(ctx, sessionID, userID, expiration)
+}
+
+func (s *sessionService) Extend(ctx context.Context, userID, sessionID string, expiration time.Duration) error {
+	return s.sessionCache.Set(ctx, sessionID, userID, expiration)
 }
 
 // base64 encoded 32 byte random string

@@ -76,6 +76,8 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
+	// TODO check if user is already logged in
+
 	// Parse request body into a new user object
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
@@ -102,14 +104,15 @@ func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 // currently only invalidates the session cookie in the request
 func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(env.Session.Name)
-	if err != nil {
+	if err != nil || cookie.Value == "" {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	http.SetCookie(w, expireCookie(cookie))
 
 	// generate logout event
-	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
+	sessionID := cookie.Value
+	userID, err := s.sessionService.Fetch(r.Context(), sessionID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -120,7 +123,7 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// remove session from redis
-	if err = s.sessionService.Remove(r.Context(), cookie.Value); err != nil {
+	if err = s.sessionService.Remove(r.Context(), sessionID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -129,20 +132,22 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // secure endpoint which retrieves user information
-func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
-	// ensure session is a valid 128+ bits long
-	// https://owasp.org/www-community/attacks/Session_hijacking_attack
+// used by api-gateway to verify user is authenticated
 
+// FIXME create separate endpoint for api-gateway to use, which
+// does not return user information (slightly more secure & performant)
+func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 	// extract session from cookie
 	cookie, err := r.Cookie(env.Session.Name)
-	if err != nil {
+	if err != nil || cookie.Value == "" {
 		log.Printf("failed to fetch session cookie: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	// verify session is valid and fetch user id
-	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
+	sessionID := cookie.Value
+	userID, err := s.sessionService.Fetch(r.Context(), sessionID)
 	if err != nil {
 		log.Printf("invalid session: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
@@ -160,6 +165,16 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// extend redis session TTL
+	if err = s.sessionService.Extend(r.Context(), userID.String(), sessionID, expiration(env.Session.MaxAge)); err != nil {
+		log.Printf("failed to extend session: %s", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// extend session MaxAge and Expires
+	http.SetCookie(w, updateCookie(env.Session, cookie))
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -171,32 +186,53 @@ func expireCookie(cookie *http.Cookie) *http.Cookie {
 	return cookie
 }
 
+func updateCookie(session config.Session, cookie *http.Cookie) *http.Cookie {
+	if cookie == nil {
+		return nil
+	}
+	cookie.MaxAge = session.MaxAge
+	cookie.Expires = expireTime(session.MaxAge)
+	return cookie
+}
+
 // TODO Validate contents of cookie to ensure it has not been modified/tampered with.
 // This can be done by adding a message authentication code (MAC) to the cookie,
 // which can be used to verify the integrity of the cookie's contents.
-func createCookie(session config.Session, value string) *http.Cookie {
-	var sameSite http.SameSite
-	switch session.SameSite {
-	case "Strict":
-		sameSite = http.SameSiteStrictMode
-	case "Lax":
-		sameSite = http.SameSiteLaxMode
-	case "None":
-		sameSite = http.SameSiteNoneMode
-	default:
-		sameSite = http.SameSiteDefaultMode
-	}
+func newCookie(session config.Session, value string) *http.Cookie {
 	return &http.Cookie{
 		Value:    value,
 		Name:     session.Name,
 		Domain:   session.Domain,
 		Path:     session.Path,
 		MaxAge:   session.MaxAge,
-		Expires:  time.Now().Add(time.Duration(session.MaxAge) * time.Second),
+		Expires:  expireTime(session.MaxAge),
 		Secure:   session.Secure,
 		HttpOnly: session.HTTPOnly,
-		SameSite: sameSite,
+		SameSite: mapSameSite(session.SameSite),
 	}
+}
+
+func mapSameSite(value string) http.SameSite {
+	switch value {
+	case "Strict":
+		return http.SameSiteStrictMode
+	case "Lax":
+		return http.SameSiteLaxMode
+	case "None":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteDefaultMode
+	}
+}
+
+// expiration used for cookie session
+func expireTime(maxAge int) time.Time {
+	return time.Now().Add(time.Duration(maxAge) * time.Second)
+}
+
+// expiration used for redis session
+func expiration(maxAge int) time.Duration {
+	return time.Duration(maxAge) * time.Second
 }
 
 func (s *HTTPHandler) parseRequestBody(r *http.Request, v interface{}) error {
@@ -212,13 +248,13 @@ func (s *HTTPHandler) loginUserAndCreateSession(ctx context.Context, w http.Resp
 	}
 
 	// create session
-	sessionID, err := s.sessionService.Create(ctx, user.ID.String())
+	sessionID, err := s.sessionService.Create(ctx, user.ID.String(), expiration(env.Session.MaxAge))
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return err
 	}
 	// set session cookie
-	http.SetCookie(w, createCookie(env.Session, sessionID))
+	http.SetCookie(w, newCookie(env.Session, sessionID))
 
 	return nil
 }
@@ -227,10 +263,10 @@ func (s *HTTPHandler) createUserAndSession(ctx context.Context, w http.ResponseW
 	if err := s.authService.Create(ctx, user); err != nil {
 		return err
 	}
-	sessionID, err := s.sessionService.Create(ctx, user.ID.String())
+	sessionID, err := s.sessionService.Create(ctx, user.ID.String(), expiration(env.Session.MaxAge))
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, createCookie(env.Session, sessionID))
+	http.SetCookie(w, newCookie(env.Session, sessionID))
 	return nil
 }
