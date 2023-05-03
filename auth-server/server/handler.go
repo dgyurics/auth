@@ -127,7 +127,16 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err = s.authService.Logout(r.Context(), &model.User{ID: userID}); err != nil {
+
+	// fetch additional user information
+	// so user logout event.body can be populated
+	user := &model.User{ID: userID}
+	if err = s.authService.Fetch(r.Context(), user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = s.authService.Logout(r.Context(), user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
