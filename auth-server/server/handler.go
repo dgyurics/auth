@@ -86,7 +86,12 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
-	// TODO check if user is already logged in
+	// return early if user already logged in
+	cookie, err := r.Cookie(env.Session.Name)
+	if err == nil && cookie.Value != "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	// Parse request body into a new user object
 	var user *model.User
