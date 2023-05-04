@@ -47,8 +47,8 @@ To install and run the server, follow these steps:
 The server handles the following endpoints:
 
 - `GET /health`: a health check endpoint that returns HTTP 200 OK.
-- `POST /register`: an endpoint for user registration. It expects a JSON object containing the following fields: `username` (string), `password` (string), and `email` (string). If the registration is successful, it returns HTTP 201 Created. If the username already exists, it returns HTTP 409 Conflict.
-- `POST /login`: an endpoint for user login. It expects a JSON object containing the following fields: `username` (string) and `password` (string). If the login is successful, it returns HTTP 200 OK and sets a session cookie. If the username or password is incorrect, it returns HTTP 400 Bad Request.
+- `POST /register`: an endpoint for user registration. It expects a JSON object containing `username` (string) and `password` (string). If the registration is successful, it returns HTTP 201 Created. If the username already exists, it returns HTTP 409 Conflict.
+- `POST /login`: an endpoint for user login. It expects a JSON object containing the following fields: `username` (string) and `password` (string). If the login is successful, it returns HTTP 200 OK and sets a session cookie. If the username or password is incorrect, it returns HTTP 401 Unauthorized Request.
 - `POST /logout`: an endpoint for user logout. It invalidates the session cookie and removes the session from the Redis cache. It returns HTTP 200 OK.
 - `GET /user`: a secure endpoint that retrieves user information. It expects a valid session cookie with a session ID. If the session is invalid or the cookie is missing, it returns HTTP 401 Unauthorized. If the session is valid, it returns HTTP 200 OK and a JSON object containing the user information (except for the password).
 
