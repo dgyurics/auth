@@ -25,3 +25,7 @@ rebuild-container:
 # stop docker containers which match the given name
 stop-containers:
 	docker kill $$(docker ps -q -f "name=$(container)")
+
+# follow service logs in real time
+logs:
+	docker compose logs -f $(service)
