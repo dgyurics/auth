@@ -119,11 +119,15 @@ func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 // currently only invalidates the session cookie in the request
 func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(env.Session.Name)
-	if err != nil || cookie.Value == "" {
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.SetCookie(w, expireCookie(cookie))
+	if cookie.Value == "" {
+		http.Error(w, "missing session cookie", http.StatusBadRequest)
+		return
+	}
+	http.SetCookie(w, expireCookie(env.Session))
 
 	// generate logout event
 	sessionID := cookie.Value
@@ -163,9 +167,12 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 	// extract session from cookie
 	cookie, err := r.Cookie(env.Session.Name)
-	if err != nil || cookie.Value == "" {
-		log.Printf("failed to fetch session cookie: %s", err)
-		w.WriteHeader(http.StatusUnauthorized)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cookie.Value == "" {
+		http.Error(w, "missing session cookie", http.StatusBadRequest)
 		return
 	}
 
@@ -202,11 +209,9 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func expireCookie(cookie *http.Cookie) *http.Cookie {
-	if cookie == nil {
-		return nil
-	}
-	cookie.Expires = time.Now().AddDate(0, 0, -1)
+func expireCookie(session config.Session) *http.Cookie {
+	cookie := newCookie(session, "")
+	cookie.MaxAge = -1
 	return cookie
 }
 
@@ -215,7 +220,6 @@ func updateCookie(session config.Session, cookie *http.Cookie) *http.Cookie {
 		return nil
 	}
 	cookie.MaxAge = session.MaxAge
-	cookie.Expires = expireTime(session.MaxAge)
 	return cookie
 }
 
@@ -229,7 +233,6 @@ func newCookie(session config.Session, value string) *http.Cookie {
 		Domain:   session.Domain,
 		Path:     session.Path,
 		MaxAge:   session.MaxAge,
-		Expires:  expireTime(session.MaxAge),
 		Secure:   session.Secure,
 		HttpOnly: session.HTTPOnly,
 		SameSite: mapSameSite(session.SameSite),
@@ -247,11 +250,6 @@ func mapSameSite(value string) http.SameSite {
 	default:
 		return http.SameSiteDefaultMode
 	}
-}
-
-// expiration used for cookie session
-func expireTime(maxAge int) time.Time {
-	return time.Now().Add(time.Duration(maxAge) * time.Second)
 }
 
 // expiration used for redis session
