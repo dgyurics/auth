@@ -5,34 +5,41 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/dgyurics/auth/auth-server/cache"
-	"github.com/go-redis/redis/v8"
+	"github.com/dgyurics/auth/auth-server/config"
 	"github.com/google/uuid"
 )
 
 // SessionService is an interface for session/Redis related operations.
 type SessionService interface {
-	Create(ctx context.Context, userID string, expiration time.Duration) (string, error)
-	Extend(ctx context.Context, userID, sessionID string, expiration time.Duration) error
+	Create(ctx context.Context, userID string) (*http.Cookie, error)
+	Extend(ctx context.Context, userID string, cookie *http.Cookie) (*http.Cookie, error)
 	Fetch(ctx context.Context, sessionID string) (uuid.UUID, error)
-	Remove(ctx context.Context, sessionID string) error
+	Remove(ctx context.Context, cookie *http.Cookie) (*http.Cookie, error)
 }
 
 type sessionService struct {
-	sessionCache cache.SessionCache
+	sessionCache  cache.SessionCache
+	sessionConfig config.Session
 }
 
-// NewSessionService creates a new session service with the given redis client.
-func NewSessionService(c *redis.Client) SessionService {
+// NewSessionService creates a new SessionService with the given session cache.
+func NewSessionService(sessionCache cache.SessionCache) SessionService {
 	return &sessionService{
-		sessionCache: cache.NewSessionCache(c),
+		sessionCache,
+		config.New().Session,
 	}
 }
 
-func (s *sessionService) Remove(ctx context.Context, sessionID string) error {
-	return s.sessionCache.Del(ctx, sessionID)
+// Remove removes the session from shared cache and returns an expired cookie.
+func (s *sessionService) Remove(ctx context.Context, cookie *http.Cookie) (*http.Cookie, error) {
+	s.modifyCookie(cookie)
+	cookie.MaxAge = 0
+	cookie.Expires = time.Now() // workaround since MaxAge 0 not being respected by some tools/browsers
+	return cookie, s.sessionCache.Del(ctx, cookie.Value)
 }
 
 func (s *sessionService) Fetch(ctx context.Context, sessionID string) (uuid.UUID, error) {
@@ -43,14 +50,17 @@ func (s *sessionService) Fetch(ctx context.Context, sessionID string) (uuid.UUID
 	return uuid.Parse(userID)
 }
 
-func (s *sessionService) Create(ctx context.Context, userID string, expiration time.Duration) (string, error) {
-	// TODO prevent user from creating too many sessions
+func (s *sessionService) Create(ctx context.Context, userID string) (*http.Cookie, error) {
 	sessionID := generateSessionID()
-	return sessionID, s.sessionCache.Set(ctx, sessionID, userID, expiration)
+	expiration := maxAgeToExpiration(s.sessionConfig.MaxAge)
+	err := s.sessionCache.Set(ctx, sessionID, userID, expiration)
+	return s.newCookie(sessionID), err
 }
 
-func (s *sessionService) Extend(ctx context.Context, userID, sessionID string, expiration time.Duration) error {
-	return s.sessionCache.Set(ctx, sessionID, userID, expiration)
+// Extend updates the expiration of the session in the session cache and
+func (s *sessionService) Extend(ctx context.Context, userID string, cookie *http.Cookie) (*http.Cookie, error) {
+	s.modifyCookie(cookie)
+	return cookie, s.sessionCache.Set(ctx, cookie.Value, userID, maxAgeToExpiration(s.sessionConfig.MaxAge))
 }
 
 // base64 encoded 32 byte random string
@@ -60,4 +70,50 @@ func generateSessionID() string {
 		return ""
 	}
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+// TODO Validate contents of cookie to ensure it has not been modified/tampered with.
+// This can be done by adding a message authentication code (MAC) to the cookie,
+// which can be used to verify the integrity of the cookie's contents.
+func (s *sessionService) newCookie(value string) *http.Cookie {
+	session := s.sessionConfig
+	return &http.Cookie{
+		Value:    value,
+		Name:     session.Name,
+		Domain:   session.Domain,
+		Path:     session.Path,
+		MaxAge:   session.MaxAge,
+		Secure:   session.Secure,
+		HttpOnly: session.HTTPOnly,
+		SameSite: mapSameSite(session.SameSite),
+	}
+}
+
+func (s *sessionService) modifyCookie(cookie *http.Cookie) {
+	session := s.sessionConfig
+	cookie.Name = session.Name
+	cookie.Domain = session.Domain
+	cookie.Path = session.Path
+	cookie.MaxAge = session.MaxAge
+	cookie.Secure = session.Secure
+	cookie.HttpOnly = session.HTTPOnly
+	cookie.SameSite = mapSameSite(session.SameSite)
+}
+
+// Convert Cookie MaxAge from seconds to time.Duration
+func maxAgeToExpiration(maxAge int) time.Duration {
+	return time.Duration(maxAge) * time.Second
+}
+
+func mapSameSite(value string) http.SameSite {
+	switch value {
+	case "Strict":
+		return http.SameSiteStrictMode
+	case "Lax":
+		return http.SameSiteLaxMode
+	case "None":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteDefaultMode
+	}
 }

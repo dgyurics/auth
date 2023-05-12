@@ -5,19 +5,24 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/dgyurics/auth/auth-server/config"
 	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/dgyurics/auth/auth-server/service"
+	"github.com/google/uuid"
 )
 
-var env = config.New()
+// TODO Create /logout-all which invalidates all sessions for the user
+//
+// TODO Create /authorized endpoint which returns 200 OK or 401 Unauthorized
+// Will be used by api-gateway to verify user is authenticated.
+// Currently api-gateway is using /user endpoint which is not performant.
+//
+// TODO Prevent user from creating too many sessions
 
-// RequestHandler is an interface that defines the methods
-// that are necessary to handle HTTP requests.
+// RequestHandler defines the methods necessary to handle HTTP requests.
 type RequestHandler interface {
 	healthCheck(w http.ResponseWriter, r *http.Request)
 	registration(w http.ResponseWriter, r *http.Request)
@@ -26,28 +31,36 @@ type RequestHandler interface {
 	user(w http.ResponseWriter, r *http.Request)
 }
 
-// HTTPHandler is a struct that contains all the dependencies necessary
-// to handle HTTP requests.
+// HTTPHandler contains necessary dependents to handle HTTP requests.
 type HTTPHandler struct {
+	sessionConfig  config.Session
 	authService    service.AuthService
 	sessionService service.SessionService
 }
 
-// NewHTTPHandler returns a new instance of httpHandler
-// FIXME refactor by returning interface rather than struct
+// NewHTTPHandler returns an instance of HTTPHandler
 func NewHTTPHandler() RequestHandler {
-	redisClient := cache.NewClient(env.Redis)
-	sessionService := service.NewSessionService(redisClient)
+	// load config
+	config := config.New()
+	sessionConfig := config.Session
 
+	// create session service
+	redisClient := cache.NewClient(config.Redis)
+	sessionCache := cache.NewSessionCache(redisClient)
+	sessionService := service.NewSessionService(sessionCache)
+
+	// create auth service
 	sqlClient := repository.NewDBClient()
-	sqlClient.Connect(config.New().PostgreSQL)
+	sqlClient.Connect(config.PostgreSQL)
 	userRepo := repository.NewUserRepository(sqlClient)
 	eventRepo := repository.NewEventRepository(sqlClient)
 	authService := service.NewAuthService(userRepo, eventRepo)
 
+	// create HTTPHandler
 	return &HTTPHandler{
-		authService:    authService,
-		sessionService: sessionService,
+		sessionConfig,
+		authService,
+		sessionService,
 	}
 }
 
@@ -56,20 +69,20 @@ func (s *HTTPHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
-	// Parse request body into a new user object
+	// Parse user from request body
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Validate user input
+	// Validate request body
 	if err := s.authService.ValidateUserInput(user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// ensure username is unique
+	// Verify username is unique
 	if s.authService.Exists(r.Context(), user) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
@@ -81,44 +94,41 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
-	// return early if user already logged in
-	cookie, err := r.Cookie(env.Session.Name)
+	// Return bad request if user already has active session
+	cookie, err := s.getSession(r)
 	if err == nil && cookie.Value != "" {
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// Parse request body into a new user object
+	// Parse user from request body
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Validate user input
+	// Validate request body
 	if err := s.authService.ValidateUserInput(user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Login user and create session
-	if err := s.loginUserAndCreateSession(r.Context(), w, user); err != nil {
+	if err := s.authenticateUserAndCreateSession(r.Context(), w, user); err != nil {
 		return
 	}
 
-	// Return success response
 	w.WriteHeader(http.StatusOK)
 }
 
-// FIXME should invalidate ALL user sessions,
-// currently only invalidates the session cookie in the request
 func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(env.Session.Name)
+	// Return error if user has no session
+	cookie, err := s.getSession(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -127,31 +137,14 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing session cookie", http.StatusBadRequest)
 		return
 	}
-	http.SetCookie(w, expireCookie(env.Session))
 
-	// generate logout event
-	sessionID := cookie.Value
-	userID, err := s.sessionService.Fetch(r.Context(), sessionID)
+	// Generate logout event (requires userID)
+	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// fetch additional user information
-	// so user logout event.body can be populated
-	user := &model.User{ID: userID}
-	if err = s.authService.Fetch(r.Context(), user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err = s.authService.Logout(r.Context(), user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// remove session from redis
-	if err = s.sessionService.Remove(r.Context(), sessionID); err != nil {
+	if err := s.logoutUserAndInvalidateSession(r.Context(), w, userID, cookie); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -159,32 +152,34 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// secure endpoint which retrieves user information
-// used by api-gateway to verify user is authenticated
-
-// FIXME create separate endpoint for api-gateway to use, which
-// does not return user information (slightly more secure & performant)
 func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
-	// extract session from cookie
-	cookie, err := r.Cookie(env.Session.Name)
+	cookie, err := s.getSession(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	if cookie.Value == "" {
-		http.Error(w, "missing session cookie", http.StatusBadRequest)
+		http.Error(w, "missing session cookie", http.StatusUnauthorized)
 		return
 	}
 
-	// verify session is valid and fetch user id
-	sessionID := cookie.Value
-	userID, err := s.sessionService.Fetch(r.Context(), sessionID)
+	// verify session is valid
+	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
 		log.Printf("invalid session: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
+	// extend session in cache and update cookie max age
+	cookie, err = s.sessionService.Extend(r.Context(), userID.String(), cookie)
+	if err != nil {
+		log.Printf("failed to extend session: %s", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// fetch user from database
 	user := &model.User{ID: userID}
 	if err = s.authService.Fetch(r.Context(), user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -196,72 +191,38 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// extend redis session TTL
-	if err = s.sessionService.Extend(r.Context(), userID.String(), sessionID, expiration(env.Session.MaxAge)); err != nil {
-		log.Printf("failed to extend session: %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// extend session MaxAge and Expires
-	http.SetCookie(w, updateCookie(env.Session, cookie))
-
+	http.SetCookie(w, cookie)
 	w.WriteHeader(http.StatusOK)
-}
-
-func expireCookie(session config.Session) *http.Cookie {
-	cookie := newCookie(session, "")
-	cookie.MaxAge = -1
-	return cookie
-}
-
-func updateCookie(session config.Session, cookie *http.Cookie) *http.Cookie {
-	if cookie == nil {
-		return nil
-	}
-	cookie.MaxAge = session.MaxAge
-	return cookie
-}
-
-// TODO Validate contents of cookie to ensure it has not been modified/tampered with.
-// This can be done by adding a message authentication code (MAC) to the cookie,
-// which can be used to verify the integrity of the cookie's contents.
-func newCookie(session config.Session, value string) *http.Cookie {
-	return &http.Cookie{
-		Value:    value,
-		Name:     session.Name,
-		Domain:   session.Domain,
-		Path:     session.Path,
-		MaxAge:   session.MaxAge,
-		Secure:   session.Secure,
-		HttpOnly: session.HTTPOnly,
-		SameSite: mapSameSite(session.SameSite),
-	}
-}
-
-func mapSameSite(value string) http.SameSite {
-	switch value {
-	case "Strict":
-		return http.SameSiteStrictMode
-	case "Lax":
-		return http.SameSiteLaxMode
-	case "None":
-		return http.SameSiteNoneMode
-	default:
-		return http.SameSiteDefaultMode
-	}
-}
-
-// expiration used for redis session
-func expiration(maxAge int) time.Duration {
-	return time.Duration(maxAge) * time.Second
 }
 
 func (s *HTTPHandler) parseRequestBody(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func (s *HTTPHandler) loginUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+func (s *HTTPHandler) getSession(r *http.Request) (*http.Cookie, error) {
+	return r.Cookie(s.sessionConfig.Name)
+}
+
+func (s *HTTPHandler) logoutUserAndInvalidateSession(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, cookie *http.Cookie) error {
+	// Generate logout event
+	user := &model.User{ID: userID}
+	if err := s.authService.Fetch(ctx, user); err != nil {
+		return err
+	}
+	if err := s.authService.Logout(ctx, user); err != nil {
+		return err
+	}
+
+	// Invalidate session
+	cookie, err := s.sessionService.Remove(ctx, cookie)
+	if err != nil {
+		return err
+	}
+	http.SetCookie(w, cookie)
+	return nil
+}
+
+func (s *HTTPHandler) authenticateUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
 	// login user
 	if err := s.authService.Login(ctx, user); err != nil {
 		log.Printf("login failed: username: %s, err: %s", user.Username, err)
@@ -270,13 +231,13 @@ func (s *HTTPHandler) loginUserAndCreateSession(ctx context.Context, w http.Resp
 	}
 
 	// create session
-	sessionID, err := s.sessionService.Create(ctx, user.ID.String(), expiration(env.Session.MaxAge))
+	cookie, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return err
 	}
 	// set session cookie
-	http.SetCookie(w, newCookie(env.Session, sessionID))
+	http.SetCookie(w, cookie)
 
 	return nil
 }
@@ -285,10 +246,10 @@ func (s *HTTPHandler) createUserAndSession(ctx context.Context, w http.ResponseW
 	if err := s.authService.Create(ctx, user); err != nil {
 		return err
 	}
-	sessionID, err := s.sessionService.Create(ctx, user.ID.String(), expiration(env.Session.MaxAge))
+	cookie, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, newCookie(env.Session, sessionID))
+	http.SetCookie(w, cookie)
 	return nil
 }

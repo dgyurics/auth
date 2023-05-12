@@ -107,12 +107,12 @@ func (s *authService) ValidateUserInput(user *model.User) error {
 	if user.Username == "" {
 		return errors.New("username cannot be empty")
 	}
-	// Strings are UTF-8 encoded, this means each charcter aka rune can be of 1 to 4 bytes long
+	// Strings are UTF-8 encoded, this means each charcter aka rune can be 1 to 4 bytes
 	if len(user.Username) > 50 {
-		return errors.New("username length cannot exceed 50 characters")
+		return errors.New("username cannot exceed 50 characters")
 	}
 	if len(user.Password) < 1 || len(user.Password) > 72 {
-		return errors.New("password length must be between 1 and 72 characters")
+		return errors.New("password must be between 1 and 72 characters")
 	}
 	if !regexp.MustCompile(`^[a-zA-Z0-9]*$`).MatchString(user.Username) {
 		return errors.New("username must be alphanumeric")

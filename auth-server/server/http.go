@@ -9,11 +9,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-var cfg *config.Config
-
-func init() {
-	cfg = config.New()
-}
+var cfg config.Config
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +32,7 @@ func initMiddleware(r *chi.Mux) {
 
 // NewHTTPServer returns a new http server
 func NewHTTPServer(addr string) *http.Server {
+	cfg = config.New()
 	r := chi.NewRouter()
 	initMiddleware(r)
 

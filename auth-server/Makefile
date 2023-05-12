@@ -19,3 +19,6 @@ lint:
 remove-package:
 	go get $(package)@none
 	go clean -cache -modcache
+
+
+# TODO add govulncheck https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck

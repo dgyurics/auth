@@ -74,8 +74,8 @@ func init() {
 
 // New returns a configuration struct with default values
 // and environment variables overriding the defaults.
-func New() *Config {
-	return &Config{
+func New() Config {
+	return Config{
 		Cors: Cors{
 			AllowOrigin:      getEnv("CORS_ALLOW_ORIGIN", "*"),
 			AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET, POST, OPTIONS"),
@@ -103,7 +103,7 @@ func New() *Config {
 		},
 		Session: Session{
 			Name:     getEnv("SESSION_NAME", "X-Session-ID"),
-			Domain:   getEnv("SESSION_DOMAIN", ""),
+			Domain:   getEnv("SESSION_DOMAIN", "localhost"),
 			Path:     getEnv("SESSION_PATH", "/"),
 			Secure:   getEnvAsBool("SESSION_SECURE", false),
 			HTTPOnly: getEnvAsBool("SESSION_HTTP_ONLY", true),
