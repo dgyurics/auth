@@ -4,7 +4,6 @@ SECURE_CONTAINER_NAME = secure-server
 
 .DEFAULT_GOAL := run
 
-
 run:
 	docker compose -p ${PROJECT_NAME} up -d
 

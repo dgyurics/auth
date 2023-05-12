@@ -39,11 +39,7 @@ type HTTPHandler struct {
 }
 
 // NewHTTPHandler returns an instance of HTTPHandler
-func NewHTTPHandler() RequestHandler {
-	// load config
-	config := config.New()
-	sessionConfig := config.Session
-
+func NewHTTPHandler(config config.Config) RequestHandler {
 	// create session service
 	redisClient := cache.NewClient(config.Redis)
 	sessionCache := cache.NewSessionCache(redisClient)
@@ -57,6 +53,7 @@ func NewHTTPHandler() RequestHandler {
 	authService := service.NewAuthService(userRepo, eventRepo)
 
 	// create HTTPHandler
+	sessionConfig := config.Session
 	return &HTTPHandler{
 		sessionConfig,
 		authService,

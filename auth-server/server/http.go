@@ -36,7 +36,7 @@ func NewHTTPServer(addr string) *http.Server {
 	r := chi.NewRouter()
 	initMiddleware(r)
 
-	handler := NewHTTPHandler()
+	handler := NewHTTPHandler(config.New())
 	setupRoutes(r, handler)
 
 	return &http.Server{
