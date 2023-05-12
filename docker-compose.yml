@@ -5,7 +5,6 @@ services:
     image: nginx
     build:
       context: ./api-gateway/
-    restart: "no"
     ports:
       - "3000:80"
     depends_on:
@@ -14,6 +13,12 @@ services:
       - public-network
       - secure-network
       - auth-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 10s
 
   auth:
     image: auth
@@ -31,12 +36,15 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 20s
+
 
   secure:
     image: secure
     build:
       context: ./secure-server/
-    restart: always
     networks:
       - secure-network
     deploy:
@@ -44,13 +52,16 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 20s
 
   postgres:
     image: postgres
     build:
       context: ./auth-server/database/
     container_name: postgres
-    restart: "no"
+    restart: "on-failure"
     ports:
       - "5432:5432"
     volumes:
@@ -61,13 +72,11 @@ services:
   redis:
     image: redis:6.2
     container_name: redis
-    restart: always
+    restart: "on-failure"
     ports:
       - '6379:6379'
     volumes: 
       - redis:/data
-      # TODO create a redis.conf file
-      # - ./redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - auth-network
 
