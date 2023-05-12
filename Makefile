@@ -26,6 +26,11 @@ coverage:
 lint:
 	cd auth-server && golangci-lint run ./...
 
+# check for vulnerabilities in dependencies
+# requires go install golang.org/x/vuln/cmd/govulncheck@latest
+vulnerabilities:
+	govulncheck ./$(AUTH_CONTAINER_NAME)/...
+
 # start single docker container
 run-container:
 	docker compose up -d --no-deps $(container) --name $(container)
