@@ -80,7 +80,7 @@ func (suite *AuthServiceTestSuite) TestLogin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = suite.service.Login(context.Background(), &model.User{
+	err = suite.service.Authenticate(context.Background(), &model.User{
 		Username: username,
 		Password: password,
 	})
@@ -90,7 +90,7 @@ func (suite *AuthServiceTestSuite) TestLogin(t *testing.T) {
 func (suite *AuthServiceTestSuite) TestLoginUserNotExist(t *testing.T) {
 	username := repo.GenerateUniqueUsername()
 	password := "pw123"
-	err := suite.service.Login(context.Background(), &model.User{
+	err := suite.service.Authenticate(context.Background(), &model.User{
 		Username: username,
 		Password: password,
 	})

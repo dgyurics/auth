@@ -3,15 +3,16 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/dgyurics/auth/auth-server/config"
 	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/dgyurics/auth/auth-server/service"
-	"github.com/google/uuid"
 )
 
 // TODO Create /logout-all which invalidates all sessions for the user
@@ -66,7 +67,7 @@ func (s *HTTPHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
-	// Parse user from request body
+	// Parse request body
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -74,19 +75,25 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request body
-	if err := s.authService.ValidateUserInput(user); err != nil {
+	if err := validateUser(user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Verify username is unique
+	// Verify username unique
 	if s.authService.Exists(r.Context(), user) {
 		http.Error(w, "username already exists", http.StatusConflict)
 		return
 	}
 
-	// Create user and session
-	if err := s.createUserAndSession(r.Context(), w, user); err != nil {
+	// Create user
+	if err := s.authService.Create(r.Context(), user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create session
+	if err := s.createSession(r.Context(), w, user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -95,14 +102,14 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
-	// Return bad request if user already has active session
+	// Return bad request if user has valid session cookie
 	cookie, err := s.getSession(r)
 	if err == nil && cookie.Value != "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// Parse user from request body
+	// Parse request body
 	var user *model.User
 	if err := s.parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -110,13 +117,21 @@ func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request body
-	if err := s.authService.ValidateUserInput(user); err != nil {
+	if err := validateUser(user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Login user and create session
-	if err := s.authenticateUserAndCreateSession(r.Context(), w, user); err != nil {
+	// Authenticate user
+	if err := s.authService.Authenticate(r.Context(), user); err != nil {
+		log.Printf("login failed: username: %s, err: %s", user.Username, err)
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Create session
+	if err := s.createSession(r.Context(), w, user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -136,12 +151,13 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate logout event (requires userID)
-	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
-	if err != nil {
+	if err := s.logoutUser(r.Context(), cookie); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.logoutUserAndInvalidateSession(r.Context(), w, userID, cookie); err != nil {
+
+	// Invalidate session
+	if err := s.invalidateSession(r.Context(), w, cookie); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -160,7 +176,7 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// verify session is valid
+	// verify session valid
 	userID, err := s.sessionService.Fetch(r.Context(), cookie.Value)
 	if err != nil {
 		log.Printf("invalid session: %s", err)
@@ -175,6 +191,7 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	http.SetCookie(w, cookie)
 
 	// fetch user from database
 	user := &model.User{ID: userID}
@@ -183,12 +200,12 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// encode user as json and write to response
 	if err := json.NewEncoder(w).Encode(model.OmitPassword(user)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	http.SetCookie(w, cookie)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -200,17 +217,22 @@ func (s *HTTPHandler) getSession(r *http.Request) (*http.Cookie, error) {
 	return r.Cookie(s.sessionConfig.Name)
 }
 
-func (s *HTTPHandler) logoutUserAndInvalidateSession(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, cookie *http.Cookie) error {
-	// Generate logout event
+func (s *HTTPHandler) logoutUser(ctx context.Context, cookie *http.Cookie) error {
+	// fetch session from cache
+	userID, err := s.sessionService.Fetch(ctx, cookie.Value)
+	if err != nil {
+		return err
+	}
+	// fetch user from database
 	user := &model.User{ID: userID}
 	if err := s.authService.Fetch(ctx, user); err != nil {
 		return err
 	}
-	if err := s.authService.Logout(ctx, user); err != nil {
-		return err
-	}
+	// generate logout event
+	return s.authService.Logout(ctx, user)
+}
 
-	// Invalidate session
+func (s *HTTPHandler) invalidateSession(ctx context.Context, w http.ResponseWriter, cookie *http.Cookie) error {
 	cookie, err := s.sessionService.Remove(ctx, cookie)
 	if err != nil {
 		return err
@@ -219,34 +241,28 @@ func (s *HTTPHandler) logoutUserAndInvalidateSession(ctx context.Context, w http
 	return nil
 }
 
-func (s *HTTPHandler) authenticateUserAndCreateSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
-	// login user
-	if err := s.authService.Login(ctx, user); err != nil {
-		log.Printf("login failed: username: %s, err: %s", user.Username, err)
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
-		return err
-	}
-
-	// create session
+func (s *HTTPHandler) createSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
 	cookie, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
-		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return err
 	}
-	// set session cookie
 	http.SetCookie(w, cookie)
-
 	return nil
 }
 
-func (s *HTTPHandler) createUserAndSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
-	if err := s.authService.Create(ctx, user); err != nil {
-		return err
+func validateUser(user *model.User) error {
+	if user.Username == "" {
+		return errors.New("username cannot be empty")
 	}
-	cookie, err := s.sessionService.Create(ctx, user.ID.String())
-	if err != nil {
-		return err
+	// Strings are UTF-8 encoded, this means each charcter aka rune can be 1 to 4 bytes
+	if len(user.Username) > 50 {
+		return errors.New("username cannot exceed 50 characters")
 	}
-	http.SetCookie(w, cookie)
+	if len(user.Password) < 1 || len(user.Password) > 72 {
+		return errors.New("password must be between 1 and 72 characters")
+	}
+	if !regexp.MustCompile(`^[a-zA-Z0-9]*$`).MatchString(user.Username) {
+		return errors.New("username must be alphanumeric")
+	}
 	return nil
 }
