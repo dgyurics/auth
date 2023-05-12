@@ -69,7 +69,7 @@ func (s *HTTPHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
 func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var user *model.User
-	if err := s.parseRequestBody(r, &user); err != nil {
+	if err := parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -111,7 +111,7 @@ func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var user *model.User
-	if err := s.parseRequestBody(r, &user); err != nil {
+	if err := parseRequestBody(r, &user); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -209,7 +209,7 @@ func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HTTPHandler) parseRequestBody(r *http.Request, v interface{}) error {
+func parseRequestBody(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
