@@ -1,16 +1,29 @@
-# start application
+PROJECT_NAME = auth
+AUTH_CONTAINER_NAME = auth-server
+SECURE_CONTAINER_NAME = secure-server
+
+.DEFAULT_GOAL := run
+
+
 run:
-	docker compose -p auth up -d
+	docker compose -p ${PROJECT_NAME} up -d
 
 build:
 	docker compose build
 
-# test application
 test:
-	go test -v -race github.com/dgyurics/auth/auth-server/... \
-	&& go test -v -race github.com/dgyurics/auth/secure-server/...
+	go test -v -race github.com/dgyurics/auth/auth-server/...
 
-# lint application
+test-all: test
+	go test -v -race github.com/dgyurics/auth/secure-server/...
+
+coverage:
+	go test -v -race -coverprofile=coverage.out github.com/dgyurics/auth/auth-server/...
+#	go test -v -race -coverprofile=coverage.out.tmp github.com/dgyurics/auth/secure-server/...
+#	cat coverage.out.tmp >> coverage.out
+#	rm -f coverage.out.tmp
+	go tool cover -html=coverage.out -o coverage.html
+
 lint:
 	cd auth-server && golangci-lint run ./...
 
@@ -18,7 +31,7 @@ lint:
 run-container:
 	docker compose up -d --no-deps $(container) --name $(container)
 
-# rebuild docker container
+# rebuild single docker container
 rebuild-container:
 	docker compose build --no-cache $(container)
 
