@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/dgyurics/auth/auth-server/config"
@@ -17,20 +18,8 @@ func main() {
 	config := config.New()
 	server := server.NewHTTPServer(":" + config.ServerConfig.Port)
 
-	// Listen for syscall signals for process to interrupt/quit
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig)
-
-	go func() {
-		<-sig
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
-		defer cancel()
-		log.Println("Shutting down server...")
-		err := server.Shutdown(ctx)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
+	// Setup graceful shutdown
+	gracefulShutdown(server)
 
 	// Start server
 	log.Println("Auth service listening on port " + config.ServerConfig.Port)
@@ -38,4 +27,19 @@ func main() {
 	if err != nil && err != http.ErrServerClosed {
 		log.Println(err)
 	}
+}
+
+func gracefulShutdown(server *http.Server) {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		<-sig
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+		defer cancel()
+		err := server.Shutdown(ctx)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 }

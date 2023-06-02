@@ -17,12 +17,19 @@ type UserRepository interface {
 }
 
 type userRepository struct {
-	c *DbClient
+	*DbClient
+	stmtInsertEvent          *sql.Stmt // Prepared statement for inserting into auth.event
+	stmtInsertUser           *sql.Stmt // Prepared statement for inserting into auth.user
+	stmtSelectUserByUsername *sql.Stmt // Prepared statement for selecting a user by username
+	stmtSelectUserByID       *sql.Stmt // Prepared statement for selecting a user by ID
 }
 
 // NewUserRepository creates a new user repository
 func NewUserRepository(c *DbClient) UserRepository {
-	repo := &userRepository{c}
+	repo := &userRepository{
+		DbClient: c,
+	}
+	repo.prepareStatements()
 	return repo
 }
 
@@ -34,69 +41,82 @@ func (r *userRepository) ExistsUser(ctx context.Context, username string) bool {
 }
 
 func (r *userRepository) GetUser(ctx context.Context, user *model.User) error {
-	var arg, query string
+	var row *sql.Row
 	if user.Username != "" {
-		query = "SELECT id, username, password FROM auth.user WHERE username = $1"
-		arg = user.Username
+		row = r.stmtSelectUserByUsername.QueryRowContext(ctx, user.Username)
 	} else {
-		query = "SELECT id, username, password FROM auth.user WHERE id = $1"
-		arg = user.ID.String()
+		row = r.stmtSelectUserByID.QueryRowContext(ctx, user.ID.String())
 	}
-
-	return r.c.connPool.QueryRowContext(ctx, query, arg).Scan(&user.ID, &user.Username, &user.Password)
+	return row.Scan(&user.ID, &user.Username, &user.Password)
 }
 
 func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
-	connPool := r.c.connPool
-	tx, err := connPool.BeginTx(ctx, nil)
+	tx, err := r.connPool.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-
-	stmtEvents, err := tx.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
-	if err != nil {
-		rollback(tx)
-		return err
-	}
-	defer closeStmt(stmtEvents)
+	defer func() {
+		if err != nil {
+			tx.Rollback() // FIXME error handling
+			return
+		}
+		err = tx.Commit()
+	}()
 
 	// stringify user for event body
 	userEncoded, err := json.Marshal(model.OmitPassword(user))
 	if err != nil {
-		rollback(tx)
 		return err
 	}
 
-	_, err = stmtEvents.Exec(user.ID, model.AccountCreated, userEncoded)
+	_, err = r.stmtInsertEvent.Exec(user.ID, model.AccountCreated, userEncoded)
 	if err != nil {
-		rollback(tx)
 		return err
 	}
 
-	stmtUser, err := tx.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
-	if err != nil {
-		rollback(tx)
-		return err
-	}
-	defer closeStmt(stmtUser)
-
-	if _, err = stmtUser.Exec(user.ID, user.Username, user.Password); err != nil {
-		rollback(tx)
+	if _, err = r.stmtInsertUser.Exec(user.ID, user.Username, user.Password); err != nil {
 		return err
 	}
 
-	return tx.Commit()
-}
-
-func rollback(tx *sql.Tx) {
-	if err := tx.Rollback(); err != nil {
-		log.Println(err)
-	}
+	return nil
 }
 
 // https://go.dev/doc/database/prepared-statements
-func closeStmt(stmt *sql.Stmt) {
-	if err := stmt.Close(); err != nil {
+func (r *userRepository) Close(ctx context.Context) {
+	if err := r.stmtInsertEvent.Close(); err != nil {
 		log.Println(err)
+	}
+	if err := r.stmtInsertUser.Close(); err != nil {
+		log.Println(err)
+	}
+	if err := r.stmtSelectUserByUsername.Close(); err != nil {
+		log.Println(err)
+	}
+	if err := r.stmtSelectUserByID.Close(); err != nil {
+		log.Println(err)
+	}
+}
+
+// Prepare the necessary SQL statements
+func (r *userRepository) prepareStatements() {
+	var err error
+	r.stmtInsertEvent, err = r.connPool.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.stmtInsertUser, err = r.connPool.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.stmtSelectUserByUsername, err = r.connPool.Prepare("SELECT id, username, password FROM auth.user WHERE username = $1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.stmtSelectUserByID, err = r.connPool.Prepare("SELECT id, username, password FROM auth.user WHERE id = $1")
+	if err != nil {
+		log.Fatal(err)
 	}
 }
