@@ -150,8 +150,14 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Logout all sessions if query param is true
+	logoutAll := false
+	if r.URL.Query().Get("all") == "true" {
+		logoutAll = true
+	}
+
 	// Generate logout event (requires userID)
-	if err := s.logoutUser(r.Context(), cookie); err != nil {
+	if err := s.logoutUser(r.Context(), cookie, logoutAll); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -217,7 +223,10 @@ func (s *HTTPHandler) getSession(r *http.Request) (*http.Cookie, error) {
 	return r.Cookie(s.sessionConfig.Name)
 }
 
-func (s *HTTPHandler) logoutUser(ctx context.Context, cookie *http.Cookie) error {
+// revokes all sessions for user if all is true
+func (s *HTTPHandler) logoutUser(ctx context.Context, cookie *http.Cookie, logoutAll bool) error {
+	// TODO add logout all functionality
+
 	// fetch session from cache
 	userID, err := s.sessionService.Fetch(ctx, cookie.Value)
 	if err != nil {
