@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := run
+
 # build project
 build:
 	go build -v -o authserver ./cmd/main.go
