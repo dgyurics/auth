@@ -26,8 +26,8 @@ func NewDBClient() *DbClient {
 // FIXME unable to specify schema name via search_path=auth
 // https://github.com/go-pg/pg/issues/351#issuecomment-474875596
 func (c *DbClient) Connect(config config.PostgreSQL) {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=%s",
-		config.Host, config.Port, config.User, config.Password, config.Dbname, config.Sslmode, config.FallbackApplication)
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s application_name=%s",
+		config.Host, config.Port, config.User, config.Password, config.Dbname, config.Sslmode, config.AppName)
 	connection, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)

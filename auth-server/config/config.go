@@ -14,13 +14,13 @@ type ServerConfig struct {
 
 // PostgreSQL contains configuration values for the PostgreSQL database.
 type PostgreSQL struct {
-	Dbname              string
-	User                string
-	Password            string
-	Host                string
-	Port                int
-	Sslmode             string
-	FallbackApplication string // allows for associating database activity with a particular application
+	Dbname   string
+	User     string
+	Password string
+	Host     string
+	Port     int
+	Sslmode  string
+	AppName  string
 	// TODO add support for below items
 	// ConnectTimeout       string
 	// Sslcert              string
@@ -83,13 +83,13 @@ func New() Config {
 			AllowCredentials: getEnv("CORS_ALLOW_CREDENTIALS", "true"),
 		},
 		PostgreSQL: PostgreSQL{
-			Dbname:              getEnv("POSTGRES_DB", "auth"),
-			User:                getEnv("POSTGRES_USER", "postgres"),
-			Password:            getEnv("POSTGRES_PASSWORD", "postgres"),
-			Host:                getEnv("POSTGRES_HOST", "localhost"),
-			Port:                getEnvAsInt("POSTGRES_PORT", 5432),
-			Sslmode:             getEnv("POSTGRES_SSLMODE", "disable"),
-			FallbackApplication: getEnv("POSTGRES_FALLBACK_APPLICATION", "golang_auth_service"),
+			Dbname:   getEnv("POSTGRES_DB", "auth"),
+			User:     getEnv("POSTGRES_USER", "postgres"),
+			Password: getEnv("POSTGRES_PASSWORD", "postgres"),
+			Host:     getEnv("POSTGRES_HOST", "localhost"),
+			Port:     getEnvAsInt("POSTGRES_PORT", 5432),
+			Sslmode:  getEnv("POSTGRES_SSLMODE", "disable"),
+			AppName:  getEnv("POSTGRES_APPLICATION_NAME", "golang_auth_service"),
 		},
 		Redis: Redis{
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
