@@ -22,7 +22,7 @@ func TestNewConfig(t *testing.T) {
 	r.Equal("localhost", c.PostgreSQL.Host, "Default PostgreSQL host not set correctly")
 	r.Equal(5432, c.PostgreSQL.Port, "Default PostgreSQL port not set correctly")
 	r.Equal("disable", c.PostgreSQL.Sslmode, "Default PostgreSQL sslmode not set correctly")
-	r.Equal("golang_auth_service", c.PostgreSQL.FallbackApplication, "Default PostgreSQL fallback application not set correctly")
+	r.Equal("golang_auth_service", c.PostgreSQL.AppName, "Default PostgreSQL fallback application not set correctly")
 
 	r.Equal("localhost:6379", c.Redis.Addr, "Default Redis address not set correctly")
 	r.Equal("", c.Redis.Username, "Default Redis username not set correctly")
