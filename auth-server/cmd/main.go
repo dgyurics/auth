@@ -29,7 +29,8 @@ func main() {
 	}
 }
 
-func gracefulShutdown(server *http.Server) {
+// FIXME refactor
+func gracefulShutdown(server *server.HTTPServer) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
@@ -37,7 +38,7 @@ func gracefulShutdown(server *http.Server) {
 		<-sig
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
 		defer cancel()
-		err := server.Shutdown(ctx)
+		err := server.Close(ctx)
 		if err != nil {
 			log.Println(err)
 		}

@@ -52,6 +52,11 @@ func (r *MockUserRepository) GetUser(_ context.Context, user *model.User) error 
 	return errors.New("user not found")
 }
 
+// Close closes the repository prepared statements
+func (r *MockUserRepository) Close() error {
+	return nil
+}
+
 // MockEventRepository is a mock implementation of the EventRepository interface
 type MockEventRepository struct {
 	Events []*model.Event
@@ -68,4 +73,9 @@ func GenerateUniqueUsername() string {
 	rand.Seed(time.Now().UnixNano()) // nolint:staticcheck
 	randomSuffix := rand.Intn(100000)
 	return fmt.Sprintf("testuser%d", randomSuffix)
+}
+
+// Close closes the repository prepared statements
+func (r *MockEventRepository) Close() error {
+	return nil
 }

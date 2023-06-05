@@ -23,24 +23,17 @@ import (
 //
 // TODO Prevent user from creating too many sessions
 
-// RequestHandler defines the methods necessary to handle HTTP requests.
-type RequestHandler interface {
-	healthCheck(w http.ResponseWriter, r *http.Request)
-	registration(w http.ResponseWriter, r *http.Request)
-	login(w http.ResponseWriter, r *http.Request)
-	logout(w http.ResponseWriter, r *http.Request)
-	user(w http.ResponseWriter, r *http.Request)
-}
-
-// HTTPHandler contains necessary dependents to handle HTTP requests.
-type HTTPHandler struct {
-	sessionConfig  config.Session
-	authService    service.AuthService
-	sessionService service.SessionService
+// RequestHandler contains necessary dependents to handle HTTP requests.
+type RequestHandler struct {
+	sessionConfig   config.Session
+	authService     service.AuthService
+	sessionService  service.SessionService
+	userRepository  repository.UserRepository
+	eventRepository repository.EventRepository
 }
 
 // NewHTTPHandler returns an instance of HTTPHandler
-func NewHTTPHandler(config config.Config) RequestHandler {
+func NewHTTPHandler(config config.Config) *RequestHandler {
 	// create session service
 	redisClient := cache.NewClient(config.Redis)
 	sessionCache := cache.NewSessionCache(redisClient)
@@ -55,18 +48,20 @@ func NewHTTPHandler(config config.Config) RequestHandler {
 
 	// create HTTPHandler
 	sessionConfig := config.Session
-	return &HTTPHandler{
+	return &RequestHandler{
 		sessionConfig,
 		authService,
 		sessionService,
+		userRepo,
+		eventRepo,
 	}
 }
 
-func (s *HTTPHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
+func (s *RequestHandler) healthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
+func (s *RequestHandler) registration(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var user *model.User
 	if err := parseRequestBody(r, &user); err != nil {
@@ -101,7 +96,7 @@ func (s *HTTPHandler) registration(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
+func (s *RequestHandler) login(w http.ResponseWriter, r *http.Request) {
 	// Return bad request if user has valid session cookie
 	cookie, err := s.getSession(r)
 	if err == nil && cookie.Value != "" {
@@ -138,7 +133,7 @@ func (s *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
+func (s *RequestHandler) logout(w http.ResponseWriter, r *http.Request) {
 	// Return error if user has no session
 	cookie, err := s.getSession(r)
 	if err != nil {
@@ -171,7 +166,7 @@ func (s *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HTTPHandler) user(w http.ResponseWriter, r *http.Request) {
+func (s *RequestHandler) user(w http.ResponseWriter, r *http.Request) {
 	cookie, err := s.getSession(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -219,12 +214,12 @@ func parseRequestBody(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func (s *HTTPHandler) getSession(r *http.Request) (*http.Cookie, error) {
+func (s *RequestHandler) getSession(r *http.Request) (*http.Cookie, error) {
 	return r.Cookie(s.sessionConfig.Name)
 }
 
-// revokes all sessions for user if all is true
-func (s *HTTPHandler) logoutUser(ctx context.Context, cookie *http.Cookie, logoutAll bool) error {
+// logoutUser revokes all sessions for user if all is true
+func (s *RequestHandler) logoutUser(ctx context.Context, cookie *http.Cookie, logoutAll bool) error {
 	// TODO add logout all functionality
 
 	// fetch session from cache
@@ -241,7 +236,7 @@ func (s *HTTPHandler) logoutUser(ctx context.Context, cookie *http.Cookie, logou
 	return s.authService.Logout(ctx, user)
 }
 
-func (s *HTTPHandler) invalidateSession(ctx context.Context, w http.ResponseWriter, cookie *http.Cookie) error {
+func (s *RequestHandler) invalidateSession(ctx context.Context, w http.ResponseWriter, cookie *http.Cookie) error {
 	cookie, err := s.sessionService.Remove(ctx, cookie)
 	if err != nil {
 		return err
@@ -250,7 +245,7 @@ func (s *HTTPHandler) invalidateSession(ctx context.Context, w http.ResponseWrit
 	return nil
 }
 
-func (s *HTTPHandler) createSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
+func (s *RequestHandler) createSession(ctx context.Context, w http.ResponseWriter, user *model.User) error {
 	cookie, err := s.sessionService.Create(ctx, user.ID.String())
 	if err != nil {
 		return err
@@ -259,6 +254,14 @@ func (s *HTTPHandler) createSession(ctx context.Context, w http.ResponseWriter, 
 	return nil
 }
 
+func (s *RequestHandler) close() model.Errors {
+	errors := make(model.Errors, 0)
+	errors = append(errors, s.userRepository.Close())
+	errors = append(errors, s.eventRepository.Close())
+	return errors
+}
+
+// TODO return model.Errors instead of error
 func validateUser(user *model.User) error {
 	if user.Username == "" {
 		return errors.New("username cannot be empty")

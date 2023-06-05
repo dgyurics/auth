@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/dgyurics/auth/auth-server/config"
+	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
@@ -30,18 +32,36 @@ func initMiddleware(r *chi.Mux) {
 	r.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
 }
 
+// HTTPServer is a wrapper around http.Server
+// additionally exposing *RequestHandler for closing resources
+type HTTPServer struct {
+	http.Server
+	handler *RequestHandler
+}
+
+// Close closes the server and all resources
+func (s *HTTPServer) Close(ctx context.Context) model.Errors {
+	errors := make(model.Errors, 0)
+	errors = append(errors, s.Shutdown(ctx))
+	errors = append(errors, s.handler.close())
+	return errors
+}
+
 // NewHTTPServer returns a new http server
-func NewHTTPServer(addr string) *http.Server {
+func NewHTTPServer(addr string) *HTTPServer {
 	cfg = config.New()
 	r := chi.NewRouter()
 	initMiddleware(r)
 
 	handler := NewHTTPHandler(config.New())
-	setupRoutes(r, handler)
+	setupRoutes(r, *handler)
 
-	return &http.Server{
-		Addr:    addr,
-		Handler: r,
+	return &HTTPServer{
+		Server: http.Server{
+			Addr:    addr,
+			Handler: r,
+		},
+		handler: handler,
 	}
 }
 

@@ -27,6 +27,7 @@ func TestHandlerSuite(t *testing.T) {
 	t.Run("TestHealthCheck", suite.TestHealthCheck)
 	t.Run("TestLogin", suite.TestRegistration)
 	t.Run("TestLogin", suite.TestLogin)
+	// TODO: Add tests for the following:
 	// t.Run("TestLogout", suite.TestLogout)
 }
 
@@ -51,7 +52,7 @@ func (suite *HandlerTestSuite) Setup() {
 		Sessions: make(map[string]string),
 	}
 	suite.sessionService = service.NewSessionService(suite.sessionCache)
-	suite.handler = &HTTPHandler{
+	suite.handler = RequestHandler{
 		authService:    suite.authService,
 		sessionService: suite.sessionService,
 	}

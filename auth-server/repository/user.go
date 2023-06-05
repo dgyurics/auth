@@ -14,6 +14,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) error
 	ExistsUser(ctx context.Context, username string) bool
 	GetUser(ctx context.Context, user *model.User) error
+	Close() error
 }
 
 type userRepository struct {
@@ -56,11 +57,13 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 		return err
 	}
 	defer func() {
-		if err != nil {
-			tx.Rollback() // FIXME error handling
+		if err == nil {
+			err = tx.Commit()
 			return
 		}
-		err = tx.Commit()
+		if errRollback := tx.Rollback(); errRollback != nil {
+			log.Println(errRollback)
+		}
 	}()
 
 	// stringify user for event body
@@ -79,22 +82,6 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 	}
 
 	return nil
-}
-
-// https://go.dev/doc/database/prepared-statements
-func (r *userRepository) Close(ctx context.Context) {
-	if err := r.stmtInsertEvent.Close(); err != nil {
-		log.Println(err)
-	}
-	if err := r.stmtInsertUser.Close(); err != nil {
-		log.Println(err)
-	}
-	if err := r.stmtSelectUserByUsername.Close(); err != nil {
-		log.Println(err)
-	}
-	if err := r.stmtSelectUserByID.Close(); err != nil {
-		log.Println(err)
-	}
 }
 
 // Prepare the necessary SQL statements
@@ -119,4 +106,22 @@ func (r *userRepository) prepareStatements() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// https://go.dev/doc/database/prepared-statements
+func (r *userRepository) Close() error {
+	var err error
+	if e := r.stmtInsertEvent.Close(); err != nil {
+		err = e
+	}
+	if e := r.stmtInsertUser.Close(); err != nil {
+		err = e
+	}
+	if e := r.stmtSelectUserByUsername.Close(); err != nil {
+		err = e
+	}
+	if e := r.stmtSelectUserByID.Close(); err != nil {
+		err = e
+	}
+	return err
 }
