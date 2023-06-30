@@ -30,7 +30,7 @@ services:
       - postgres
       - redis
     networks:
-      - auth-network
+      - public-network
     deploy:
       mode: replicated
       replicas: 3
@@ -66,8 +66,8 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data/
-    # networks:
-    #   - auth-network
+    networks:
+      - public-network
 
   redis:
     image: redis:6.2
@@ -77,8 +77,8 @@ services:
       - '6379:6379'
     volumes: 
       - redis:/data
-    # networks:
-    #   - auth-network
+    networks:
+      - public-network
 
 networks:
   public-network:

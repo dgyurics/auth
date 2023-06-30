@@ -32,12 +32,13 @@ func TestHandlerSuite(t *testing.T) {
 }
 
 type HandlerTestSuite struct {
-	userRepo       repo.UserRepository
-	eventRepo      repo.EventRepository
-	authService    service.AuthService
-	sessionCache   cache.SessionCache
-	sessionService service.SessionService
-	handler        RequestHandler
+	userRepo          repo.UserRepository
+	eventRepo         repo.EventRepository
+	authService       service.AuthService
+	sessionCache      cache.SessionCache
+	sessionRepository repo.SessionRepository
+	sessionService    service.SessionService
+	handler           RequestHandler
 }
 
 func (suite *HandlerTestSuite) Setup() {
@@ -51,7 +52,10 @@ func (suite *HandlerTestSuite) Setup() {
 	suite.sessionCache = &cache.MockSessionCache{
 		Sessions: make(map[string]string),
 	}
-	suite.sessionService = service.NewSessionService(suite.sessionCache)
+	suite.sessionRepository = &repo.MockSessionRepository{
+		Sessions: []*model.Session{},
+	}
+	suite.sessionService = service.NewSessionService(suite.sessionCache, suite.sessionRepository)
 	suite.handler = RequestHandler{
 		authService:    suite.authService,
 		sessionService: suite.sessionService,

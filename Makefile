@@ -33,7 +33,7 @@ vulnerabilities:
 
 # start single docker container
 run-container:
-	docker compose up -d --no-deps $(container) --name $(container)
+	docker compose up -d --no-deps $(container)
 
 # rebuild single docker container
 rebuild-container:

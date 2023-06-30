@@ -35,7 +35,10 @@ func (r *eventRepository) CreateEvent(ctx context.Context, event *model.Event) e
 
 func (r *eventRepository) prepareStatements() {
 	var err error
-	r.stmtInsertEvent, err = r.connPool.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	r.stmtInsertEvent, err = r.connPool.Prepare(`
+		INSERT INTO auth.event (uuid, type, body)
+		VALUES ($1, $2, $3)
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}

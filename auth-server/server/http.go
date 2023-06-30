@@ -68,7 +68,9 @@ func NewHTTPServer(addr string) *HTTPServer {
 func setupRoutes(r chi.Router, h RequestHandler) {
 	r.Get("/health", h.healthCheck)
 	r.Get("/user", h.user)
+	r.Get("/sessions", h.sessions)
 	r.Post("/login", h.login)
 	r.Post("/logout", h.logout)
+	r.Post("/logout-all", h.logoutAll)
 	r.Post("/register", h.registration)
 }

@@ -14,6 +14,7 @@ type EventType string
 const (
 	LoggedIn       EventType = "logged_in"
 	LoggedOut      EventType = "logged_out"
+	LoggedOutAll   EventType = "logged_out_all"
 	AccountCreated EventType = "account_created"
 )
 

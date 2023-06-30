@@ -15,6 +15,7 @@ type AuthService interface {
 	Authenticate(ctx context.Context, user *model.User) error
 	Create(ctx context.Context, user *model.User) error
 	Logout(ctx context.Context, user *model.User) error
+	LogoutAll(ctx context.Context, user *model.User) error
 	Exists(ctx context.Context, user *model.User) bool // FIXME remove and combine into single transaction with Create
 	Fetch(ctx context.Context, user *model.User) error
 }
@@ -92,6 +93,19 @@ func (s *authService) Logout(ctx context.Context, user *model.User) error {
 	return s.eventRepository.CreateEvent(ctx, &model.Event{
 		UUID: user.ID,
 		Type: model.LoggedOut,
+		Body: userEncoded,
+	})
+}
+
+func (s *authService) LogoutAll(ctx context.Context, user *model.User) error {
+	// stringify user for event body
+	userEncoded, err := json.Marshal(model.OmitPassword(user))
+	if err != nil {
+		return err
+	}
+	return s.eventRepository.CreateEvent(ctx, &model.Event{
+		UUID: user.ID,
+		Type: model.LoggedOutAll,
 		Body: userEncoded,
 	})
 }

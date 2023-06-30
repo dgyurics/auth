@@ -87,22 +87,33 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 // Prepare the necessary SQL statements
 func (r *userRepository) prepareStatements() {
 	var err error
-	r.stmtInsertEvent, err = r.connPool.Prepare("INSERT INTO auth.event (uuid, type, body) VALUES ($1, $2, $3)")
+	r.stmtInsertEvent, err = r.connPool.Prepare(`
+		INSERT INTO auth.event (uuid, type, body)
+		VALUES ($1, $2, $3)
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	r.stmtInsertUser, err = r.connPool.Prepare("INSERT INTO auth.user (id, username, password) VALUES ($1, $2, $3)")
+	r.stmtInsertUser, err = r.connPool.Prepare(`
+		INSERT INTO auth.user (id, username, password)
+		VALUES ($1, $2, $3)
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	r.stmtSelectUserByUsername, err = r.connPool.Prepare("SELECT id, username, password FROM auth.user WHERE username = $1")
+	r.stmtSelectUserByUsername, err = r.connPool.Prepare(`
+		SELECT id, username, password
+		FROM auth.user
+		WHERE username = $1
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	r.stmtSelectUserByID, err = r.connPool.Prepare("SELECT id, username, password FROM auth.user WHERE id = $1")
+	r.stmtSelectUserByID, err = r.connPool.Prepare(`
+		SELECT id, username, password
+		FROM auth.user
+		WHERE id = $1
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}

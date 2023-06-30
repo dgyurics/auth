@@ -12,19 +12,16 @@ CREATE TABLE "auth"."event" (
   "created_at" timestamp without time zone DEFAULT (now() at time zone 'utc')
 );
 
--- user table stores user information
+-- user table stores user data
 CREATE TABLE "auth"."user" (
   "id"       uuid	PRIMARY KEY,
   "username" varchar(50) UNIQUE NOT NULL,
   "password" char(60) NOT NULL -- bcrypt hash
 );
 
--- session table stores user sessions
--- session data is stored in redis, however, by keeping track of sessions in the database
--- we can easily see the number of active sessions per user, as well as invalidate
--- all sessions for a specific user when necessary
-CREATE TABLE "auth"."user_session" (
+-- session table stores user session data
+CREATE TABLE "auth"."session" (
+  "id" char(44) NOT NULL,
   "user_id"    uuid NOT NULL REFERENCES "auth"."user" ("id"),
-  "session_id" char(36) NOT NULL, -- underlying type is uuid
   "created_at" timestamp without time zone DEFAULT (now() at time zone 'utc')
 );

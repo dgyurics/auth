@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dgyurics/auth/auth-server/model"
+	"github.com/google/uuid"
 )
 
 // MockUserRepository is a mock implementation of the UserRepository interface
@@ -77,5 +78,52 @@ func GenerateUniqueUsername() string {
 
 // Close closes the repository prepared statements
 func (r *MockEventRepository) Close() error {
+	return nil
+}
+
+type MockSessionRepository struct {
+	Sessions []*model.Session
+}
+
+func (r *MockSessionRepository) CreateSession(_ context.Context, session *model.Session) error {
+	for _, s := range r.Sessions {
+		if s.ID == session.ID {
+			return errors.New("session already exists")
+		}
+	}
+	r.Sessions = append(r.Sessions, session)
+	return nil
+}
+
+func (r *MockSessionRepository) RemoveSession(_ context.Context, sessionID string) error {
+	for i, s := range r.Sessions {
+		if s.ID == sessionID {
+			r.Sessions = append(r.Sessions[:i], r.Sessions[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("session not found")
+}
+
+func (r *MockSessionRepository) GetSessions(ctx context.Context, userID uuid.UUID) ([]*model.Session, error) {
+	var sessions []*model.Session
+	for _, s := range r.Sessions {
+		if s.UserID == userID {
+			sessions = append(sessions, s)
+		}
+	}
+	return sessions, nil
+}
+
+func (r *MockSessionRepository) RemoveSessions(_ context.Context, userID uuid.UUID) error {
+	for i, s := range r.Sessions {
+		if s.UserID == userID {
+			r.Sessions = append(r.Sessions[:i], r.Sessions[i+1:]...)
+		}
+	}
+	return nil
+}
+
+func (r *MockSessionRepository) Close() error {
 	return nil
 }
