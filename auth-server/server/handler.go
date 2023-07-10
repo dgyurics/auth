@@ -38,6 +38,8 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 	sessionRepo := repository.NewSessionRepository(sqlClient)
 	sessionService := service.NewSessionService(sessionCache, sessionRepo)
 
+	go sessionCache.KeyspaceNotifications(context.Background())
+
 	// create auth service
 	userRepo := repository.NewUserRepository(sqlClient)
 	eventRepo := repository.NewEventRepository(sqlClient)
