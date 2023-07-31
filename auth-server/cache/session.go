@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
-	"os"
+	"log"
 	"sync"
 	"time"
 
@@ -41,20 +41,18 @@ func (s *sessionCache) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (s *sessionCache) KeyspaceNotifications(ctx context.Context) {
-
 	// this is telling redis to publish events since it's off by default.
 	_, err := s.c.Do(context.Background(), "CONFIG", "SET", "notify-keyspace-events", "KEA").Result()
 	if err != nil {
-		fmt.Printf("unable to set keyspace events %v", err.Error())
-		os.Exit(1)
+		log.Fatalf("unable to set keyspace events %v", err.Error())
 	}
 
-	fmt.Println("subscribing to keyspace events")
-
 	// this is telling redis to subscribe to events published in the keyevent channel, specifically for expired events
+	// TODO 0 should be replaced with the database number
 	pubsub := s.c.PSubscribe(context.Background(), "__keyevent@0__:expired")
 
 	// this is just to show publishing events and catching the expired events in the same codebase
+	// FIXME can I remove this?
 	wg := &sync.WaitGroup{}
 	wg.Add(2) // two goroutines are spawned
 
@@ -65,16 +63,19 @@ func (s *sessionCache) KeyspaceNotifications(ctx context.Context) {
 			message, err := pubsub.ReceiveMessage(context.Background())
 			exitLoopCounter++
 			if err != nil {
-				fmt.Printf("error message - %v", err.Error())
+				log.Fatalf("fatal error while listening for keyspace events %v", err.Error())
 				break
 			}
 			fmt.Printf("Keyspace event recieved %v  \n", message.String())
-			if exitLoopCounter >= 10 {
-				wg.Done()
-			}
+			// TODO remove session from postgres
+
+			// if exitLoopCounter >= 10 {
+			// 	wg.Done()
+			// }
 		}
 	}(*pubsub)
 
+	// FIXME can I remove this?
 	wg.Wait()
-	fmt.Println("exiting program")
+	fmt.Println("exiting KeyspaceNotifications")
 }
