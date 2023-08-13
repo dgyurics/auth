@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -40,42 +39,29 @@ func (s *sessionCache) Get(ctx context.Context, key string) (string, error) {
 	return s.c.Get(ctx, key).Result()
 }
 
+// give it a channel to send events
+// give it a database name
+// add private function service.session.keyspaceNotifications
+// have service.NewSessionService call service.session.keyspaceNotifications using a goroutine
 func (s *sessionCache) KeyspaceNotifications(ctx context.Context) {
 	// this is telling redis to publish events since it's off by default.
-	_, err := s.c.Do(context.Background(), "CONFIG", "SET", "notify-keyspace-events", "KEA").Result()
+	_, err := s.c.Do(ctx, "CONFIG", "SET", "notify-keyspace-events", "KEA").Result()
 	if err != nil {
 		log.Fatalf("unable to set keyspace events %v", err.Error())
 	}
 
 	// this is telling redis to subscribe to events published in the keyevent channel, specifically for expired events
 	// TODO 0 should be replaced with the database number
-	pubsub := s.c.PSubscribe(context.Background(), "__keyevent@0__:expired")
+	pubsub := s.c.PSubscribe(ctx, "__keyevent@0__:expired")
 
-	// this is just to show publishing events and catching the expired events in the same codebase
-	// FIXME can I remove this?
-	wg := &sync.WaitGroup{}
-	wg.Add(2) // two goroutines are spawned
+	for {
+		message, err := pubsub.ReceiveMessage(ctx)
 
-	go func(redis.PubSub) {
-		exitLoopCounter := 0
-		for { // infinite loop
-			// this listens in the background for messages.
-			message, err := pubsub.ReceiveMessage(context.Background())
-			exitLoopCounter++
-			if err != nil {
-				log.Fatalf("fatal error while listening for keyspace events %v", err.Error())
-				break
-			}
-			fmt.Printf("Keyspace event recieved %v  \n", message.String())
-			// TODO remove session from postgres
-
-			// if exitLoopCounter >= 10 {
-			// 	wg.Done()
-			// }
+		if err != nil {
+			log.Fatalf("fatal error while listening for keyspace events %v", err.Error())
+			break
 		}
-	}(*pubsub)
-
-	// FIXME can I remove this?
-	wg.Wait()
-	fmt.Println("exiting KeyspaceNotifications")
+		fmt.Printf("Keyspace event recieved %v  \n", message.String())
+		// TODO remove session from postgres
+	}
 }

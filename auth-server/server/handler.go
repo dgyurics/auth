@@ -39,7 +39,8 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 	sessionService := service.NewSessionService(sessionCache, sessionRepo)
 
 	// start listening for expired sessions
-	sessionCache.KeyspaceNotifications(context.Background())
+	// FIXME move to separate goroutine/function
+	go sessionCache.KeyspaceNotifications(context.Background())
 
 	// create auth service
 	userRepo := repository.NewUserRepository(sqlClient)
