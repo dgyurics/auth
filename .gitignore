@@ -18,7 +18,6 @@
 # IDE files
 .vscode/
 *.code-workspace
-*.DS_Store
 
 # Log files
 *.log
@@ -26,3 +25,21 @@
 
 # Secrets
 # .env
+
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Node.js
+node_modules/
+
+# Build files
+build/
+public/
+
+# Other
+.DS_Store
+*.pem
