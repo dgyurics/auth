@@ -7,6 +7,7 @@ export default function Home() {
     username: '',
     password: '',
   })
+  const [error, setError] = useState('')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -14,12 +15,16 @@ export default function Home() {
       ...prevData,
       [name]: value,
     }))
+    setError('')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // You can add your registration logic here
+    // TODO: send data to server
+    // if success, redirect to dashboard
+    // if fail, show error message
     console.log(formData)
+    setError('Invalid username or password')
   }
 
   return (
@@ -46,6 +51,11 @@ export default function Home() {
             className="w-full p-1 text-center border-b border-gray-400 focus:outline-none"
             required
           />
+        </div>
+        <div className="mb-4 flex justify-center">
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
         </div>
         <div className="flex justify-center">
           <button
