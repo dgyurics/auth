@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import router from 'next/router'
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -18,13 +19,25 @@ export default function Home() {
     setError('')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: send data to server
-    // if success, redirect to dashboard
-    // if fail, show error message
-    console.log(formData)
-    setError('Invalid username or password')
+    try {
+      const response = await fetch(`${process.env.API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        router.push('/dashboard')
+      } else {
+        setError('Invalid username or password')
+      }
+    } catch (err) {
+      setError('Network error')
+    }
   }
 
   return (

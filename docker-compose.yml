@@ -1,6 +1,21 @@
 version: "3.9"
 
 services:
+  # ui:
+  #   image: ui
+  #   build:
+  #     context: ./ui/
+  #   ports:
+  #     - "8081:3000"
+  #   networks:
+  #     - public-network
+  #   deploy:
+  #     restart_policy:
+  #       condition: on-failure
+  #       delay: 5s
+  #       max_attempts: 3
+  #       window: 10s
+
   nginx:
     image: nginx
     build:
@@ -39,7 +54,6 @@ services:
         delay: 5s
         max_attempts: 3
         window: 20s
-
 
   secure:
     image: secure
