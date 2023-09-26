@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import router from 'next/router'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -36,6 +37,7 @@ export default function Home() {
         setError('Invalid username or password')
       }
     } catch (err) {
+      console.dir(err)
       setError('Network error')
     }
   }
@@ -73,7 +75,7 @@ export default function Home() {
         <div className="flex justify-center">
           <button
             type="submit"
-            className="w-40 py-2 text-gray-400 border border-gray-400 focus:outline-none"
+            className="w-40 py-2 text-gray-600 border border-gray-600 hover:text-gray-400 hover:border-gray-400 focus:outline-none transition duration-300"
           >
             login
           </button>
