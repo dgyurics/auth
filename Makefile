@@ -32,12 +32,32 @@ vulnerabilities:
 	govulncheck ./$(AUTH_CONTAINER_NAME)/...
 
 # start single docker container
-run-container:
-	docker compose up -d --no-deps $(container)
+run-ui:
+	docker compose up -d --no-deps ui
+run-nginx:
+	docker compose up -d --no-deps nginx
+run-auth:
+	docker compose up -d --no-deps auth
+run-secure:
+	docker compose up -d --no-deps secure
+run-postgres:
+	docker compose up -d --no-deps postgres
+run-redis:
+	docker compose up -d --no-deps redis
 
 # rebuild single docker container
-rebuild-container:
-	docker compose build --no-cache $(container)
+rebuild-ui:
+	docker compose build --no-cache ui
+rebuild-nginx:
+	docker compose build --no-cache nginx
+rebuild-auth:
+	docker compose build --no-cache auth
+rebuild-secure:
+	docker compose build --no-cache secure
+rebuild-postgres:
+	docker compose build --no-cache postgres
+rebuild-redis:
+	docker compose build --no-cache redis
 
 # stop docker containers which match the given name
 stop-containers:
