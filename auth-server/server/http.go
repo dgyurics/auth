@@ -15,10 +15,10 @@ var cfg config.Config
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Credentials", cfg.Cors.AllowCredentials)
 		w.Header().Set("Access-Control-Allow-Origin", cfg.Cors.AllowOrigin)
-		w.Header().Set("Allow-Control-Allow-Methods", cfg.Cors.AllowMethods)
-		w.Header().Set("Allow-Control-Allow-Headers", cfg.Cors.AllowHeaders)
-		w.Header().Set("Allow-Control-Allow-Credentials", cfg.Cors.AllowCredentials)
+		w.Header().Set("Access-Control-Allow-Headers", cfg.Cors.AllowHeaders)
+		w.Header().Set("Access-Control-Allow-Methods", cfg.Cors.AllowMethods)
 		if r.Method == "OPTIONS" {
 			return
 		}
