@@ -7,12 +7,14 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/dgyurics/auth/auth-server/config"
 	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/dgyurics/auth/auth-server/service"
+	"github.com/gorilla/websocket"
 )
 
 // TODO Prevent user from creating too many sessions
@@ -24,6 +26,7 @@ type RequestHandler struct {
 	sessionService  service.SessionService
 	userRepository  repository.UserRepository
 	eventRepository repository.EventRepository
+	upgrader        websocket.Upgrader
 }
 
 // NewHTTPHandler returns an instance of HTTPHandler
@@ -43,6 +46,9 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 	eventRepo := repository.NewEventRepository(sqlClient)
 	authService := service.NewAuthService(userRepo, eventRepo)
 
+	// create websocket upgrader
+	upgrader := websocket.Upgrader{}
+
 	// create HTTPHandler
 	sessionConfig := config.Session
 	return &RequestHandler{
@@ -51,6 +57,7 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 		sessionService,
 		userRepo,
 		eventRepo,
+		upgrader,
 	}
 }
 
@@ -253,6 +260,25 @@ func (s *RequestHandler) sessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
+	c, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer c.Close()
+	sum := 0
+	for i := 1; i < 5; i++ {
+		err = c.WriteMessage(websocket.TextMessage, []byte("Hello, world!"))
+		sum++
+		time.Sleep(8 * time.Second)
+	}
+
+	if err != nil {
+		log.Println("write:", err)
+	}
 }
 
 func parseRequestBody(r *http.Request, v interface{}) error {

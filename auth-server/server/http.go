@@ -73,4 +73,5 @@ func setupRoutes(r chi.Router, h RequestHandler) {
 	r.Post("/logout", h.logout)
 	r.Post("/logout-all", h.logoutAll)
 	r.Post("/register", h.registration)
+	r.HandleFunc("/ws", h.websocket)
 }
