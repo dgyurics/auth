@@ -266,6 +266,9 @@ func (s *RequestHandler) sessions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// get user info/id
+// when a new session is created for this user, send a message to the websocket
+// when an existing session is invalidated for this user, send a message to the websocket
 func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 	c, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -274,6 +277,10 @@ func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 	sum := 0
+	// redis key is session id
+	// redis val is user id
+	// call KeyspaceNotifications with user id and channel
+	// when KeyspaceNotifications sees logout for userid, it sends notification to channel
 	for i := 1; i < 5; i++ {
 		err = c.WriteMessage(websocket.TextMessage, []byte("Hello, world!"))
 		sum++

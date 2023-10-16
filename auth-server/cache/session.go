@@ -50,9 +50,13 @@ func (s *sessionCache) KeyspaceNotifications(ctx context.Context) {
 		log.Fatalf("unable to set keyspace events %v", err.Error())
 	}
 
+	// redisClient.SAdd("user:" + userID, sessionID)
+
 	// this is telling redis to subscribe to events published in the keyevent channel, specifically for expired events
 	// TODO 0 should be replaced with the database number
 	pubsub := s.c.PSubscribe(ctx, "__keyevent@0__:expired")
+
+	// FIXME watch for value which is the user id
 
 	for {
 		message, err := pubsub.ReceiveMessage(ctx)

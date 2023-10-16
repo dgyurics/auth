@@ -11,7 +11,6 @@ import (
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/dgyurics/auth/auth-server/config"
-	"github.com/dgyurics/auth/auth-server/model"
 	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/google/uuid"
 )
@@ -132,10 +131,11 @@ func (s *sessionService) Create(ctx context.Context, userID uuid.UUID) (*http.Co
 		return nil, err
 	}
 	// FIXME should be single SQL transaction with user creation/login
-	if err := s.sessionRepository.CreateSession(ctx, &model.Session{ID: sessionID, UserID: userID}); err != nil {
-		// FIXME undo sessionCache.Set if CreateSession fails
-		return nil, err
-	}
+	// if err := s.sessionRepository.CreateSession(ctx, &model.Session{ID: sessionID, UserID: userID}); err != nil {
+	// 	// FIXME undo sessionCache.Set if CreateSession fails
+	// 	return nil, err
+	// }
+
 	return s.newCookie(sessionID), nil
 }
 
