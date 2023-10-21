@@ -4,14 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/dgyurics/auth/auth-server/cache"
 	"github.com/dgyurics/auth/auth-server/config"
-	"github.com/dgyurics/auth/auth-server/repository"
 	"github.com/google/uuid"
 )
 
@@ -26,9 +25,8 @@ type SessionService interface {
 }
 
 type sessionService struct {
-	sessionCache      cache.SessionCache
-	sessionRepository repository.SessionRepository
-	sessionConfig     config.Session
+	sessionCache  cache.SessionCache
+	sessionConfig config.Session
 }
 
 // FIXME how do we invalidate sessions in SQL when they expire in Redis aka sessionCache?
@@ -36,13 +34,9 @@ type sessionService struct {
 // https://medium.com/nerd-for-tech/redis-getting-notified-when-a-key-is-expired-or-changed-ca3e1f1c7f0a
 
 // NewSessionService creates a new SessionService with the given session cache.
-func NewSessionService(
-	sessionCache cache.SessionCache,
-	sessionRepository repository.SessionRepository,
-) SessionService {
+func NewSessionService(sessionCache cache.SessionCache) SessionService {
 	return &sessionService{
 		sessionCache,
-		sessionRepository,
 		config.New().Session,
 	}
 }
@@ -52,12 +46,17 @@ func (s *sessionService) Remove(ctx context.Context, cookie *http.Cookie) (*http
 	s.modifyCookie(cookie)
 	cookie.MaxAge = 0
 	cookie.Expires = time.Now() // workaround since MaxAge 0 not being respected by some tools/browsers
+
+	userID, err := s.sessionCache.Get(ctx, cookie.Value)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := s.sessionCache.Del(ctx, cookie.Value); err != nil {
 		return nil, err
 	}
-	// FIXME should be in single SQL transaction
-	// FIXME if RemoveSession fails, we should rollback the sessionCache.Del
-	if err := s.sessionRepository.RemoveSession(ctx, cookie.Value); err != nil {
+
+	if err := s.sessionCache.SRem(ctx, userID, cookie.Value); err != nil {
 		return nil, err
 	}
 	return cookie, nil
@@ -68,33 +67,26 @@ func (s *sessionService) RemoveAll(ctx context.Context, cookie *http.Cookie) (*h
 	s.modifyCookie(cookie)
 	cookie.MaxAge = 0
 	cookie.Expires = time.Now() // workaround since MaxAge 0 not being respected by some tools/browsers
+
 	userID, err := s.sessionCache.Get(ctx, cookie.Value)
-	fmt.Println("userID: ", userID)
 	if err != nil {
 		return nil, err
 	}
-	// todo use userID to get all sessionIDs for the user
-	// todo remove all sessions from cache
-	userUUID, err := uuid.Parse(userID)
+
+	sessions, err := s.sessionCache.SMembers(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	// fetch all sessions for the user
-	sessions, err := s.sessionRepository.GetSessions(ctx, userUUID)
-	if err != nil {
-		return nil, err
-	}
-	// remove all sessions from cache
+
 	for _, session := range sessions {
-		if err := s.sessionCache.Del(ctx, session.ID); err != nil {
-			return nil, err // FIXME may be better to return partial success and log error
+		if err := s.sessionCache.Del(ctx, session); err != nil {
+			return nil, err
+		}
+		if err := s.sessionCache.SRem(ctx, userID, session); err != nil {
+			return nil, err
 		}
 	}
-	// FIXME should be in single SQL transaction
-	// FIXME if RemoveSession fails, we should rollback the sessionCache.Del
-	if err := s.sessionRepository.RemoveSessions(ctx, userUUID); err != nil {
-		return nil, err
-	}
+
 	return cookie, nil
 }
 
@@ -109,20 +101,36 @@ func (s *sessionService) Fetch(ctx context.Context, sessionID string) (uuid.UUID
 func (s *sessionService) FetchAll(ctx context.Context, sessionID string) ([]string, error) {
 	userID, err := s.Fetch(ctx, sessionID)
 	if err != nil {
+		log.Printf("sessionID %s not found in cache", sessionID)
 		return nil, err
 	}
-	sessions, err := s.sessionRepository.GetSessions(ctx, userID)
+	// iterate SMembers and validate session is still valid
+	sessionIDs, err := s.sessionCache.SMembers(ctx, userID.String())
 	if err != nil {
+		log.Printf("error fetching sessions for user %s: %v", userID.String(), err)
 		return nil, err
 	}
-	sessionIDs := make([]string, len(sessions))
-	for i, session := range sessions {
-		sessionIDs[i] = session.ID
+
+	// Index to keep track of the current position in the slice
+	validCount := 0
+
+	// remove invalid sessions
+	for _, id := range sessionIDs {
+		if _, err := s.sessionCache.Get(ctx, id); err != nil {
+			// remove invalid session from set
+			s.sessionCache.SRem(ctx, userID.String(), id)
+		} else {
+			// Overwrite the current position in the slice with the valid session
+			sessionIDs[validCount] = id
+			validCount++
+		}
 	}
+
+	// Trim the slice to remove any remaining elements after validCount
+	sessionIDs = sessionIDs[:validCount]
+
 	return sessionIDs, nil
 }
-
-// TODO use Redis keyspace notifications to invalidate sessions in SQL when they expire in Redis
 
 func (s *sessionService) Create(ctx context.Context, userID uuid.UUID) (*http.Cookie, error) {
 	sessionID := generateSessionID()
@@ -130,11 +138,10 @@ func (s *sessionService) Create(ctx context.Context, userID uuid.UUID) (*http.Co
 	if err := s.sessionCache.Set(ctx, sessionID, userID.String(), expiration); err != nil {
 		return nil, err
 	}
-	// FIXME should be single SQL transaction with user creation/login
-	// if err := s.sessionRepository.CreateSession(ctx, &model.Session{ID: sessionID, UserID: userID}); err != nil {
-	// 	// FIXME undo sessionCache.Set if CreateSession fails
-	// 	return nil, err
-	// }
+
+	if err := s.sessionCache.SAdd(ctx, userID.String(), sessionID); err != nil {
+		return nil, err
+	}
 
 	return s.newCookie(sessionID), nil
 }

@@ -38,12 +38,7 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 	// create session service
 	redisClient := cache.NewClient(config.Redis)
 	sessionCache := cache.NewSessionCache(redisClient)
-	sessionRepo := repository.NewSessionRepository(sqlClient)
-	sessionService := service.NewSessionService(sessionCache, sessionRepo)
-
-	// start listening for expired sessions
-	// FIXME move to separate goroutine/function
-	go sessionCache.KeyspaceNotifications(context.Background())
+	sessionService := service.NewSessionService(sessionCache)
 
 	// create auth service
 	userRepo := repository.NewUserRepository(sqlClient)
@@ -105,13 +100,6 @@ func (s *RequestHandler) registration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *RequestHandler) login(w http.ResponseWriter, r *http.Request) {
-	// Return bad request if user has valid session cookie
-	cookie, err := s.extractSession(r)
-	if err == nil && cookie.Value != "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	// Parse request body
 	var user *model.User
 	if err := parseRequestBody(r, &user); err != nil {
@@ -267,28 +255,67 @@ func (s *RequestHandler) sessions(w http.ResponseWriter, r *http.Request) {
 }
 
 // get user info/id
-// when a new session is created for this user, send a message to the websocket
-// when an existing session is invalidated for this user, send a message to the websocket
+// when active sessions changes, send updated list to client
 func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
+	// verify session valid
+	cookie, err := s.extractSession(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cookie.Value == "" {
+		http.Error(w, "missing session cookie", http.StatusBadRequest)
+		return
+	}
+	if _, err := s.sessionService.Fetch(r.Context(), cookie.Value); err != nil {
+		log.Printf("invalid session: %s", err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// upgrade connection to websocket
 	c, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
 	defer c.Close()
-	sum := 0
-	// redis key is session id
-	// redis val is user id
-	// call KeyspaceNotifications with user id and channel
-	// when KeyspaceNotifications sees logout for userid, it sends notification to channel
-	for i := 1; i < 5; i++ {
-		err = c.WriteMessage(websocket.TextMessage, []byte("Hello, world!"))
-		sum++
-		time.Sleep(8 * time.Second)
-	}
 
-	if err != nil {
-		log.Println("write:", err)
+	// initialize a variable to store last delivered payload
+	var lastSessionVersion string
+
+	for {
+		// FIXME Handle disconnect. Currently blocks, so not working...
+		// go func() {
+		// 	c.ReadMessage()
+		// 	fmt.Println("received message from client")
+		// }()
+
+		// fetch all sessions for user
+		sessions, err := s.sessionService.FetchAll(r.Context(), cookie.Value)
+		if err != nil {
+			log.Printf("failed to fetch sessions: %s", err)
+			c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to fetch sessions"))
+			break
+		}
+
+		// serialize the array to JSON
+		jsonData, err := json.Marshal(sessions)
+		if err != nil {
+			log.Printf("failed to marshal sessions: %s", err)
+			c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to marshal sessions"))
+			return
+		}
+
+		// when data changes, send new data to client
+		if lastSessionVersion != string(jsonData) {
+			c.WriteMessage(websocket.TextMessage, jsonData)
+
+			// Update the last session version
+			lastSessionVersion = string(jsonData)
+		}
+
+		time.Sleep(5 * time.Second)
 	}
 }
 

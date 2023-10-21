@@ -55,7 +55,7 @@ func (suite *HandlerTestSuite) Setup() {
 	suite.sessionRepository = &repo.MockSessionRepository{
 		Sessions: []*model.Session{},
 	}
-	suite.sessionService = service.NewSessionService(suite.sessionCache, suite.sessionRepository)
+	suite.sessionService = service.NewSessionService(suite.sessionCache)
 	suite.handler = RequestHandler{
 		authService:    suite.authService,
 		sessionService: suite.sessionService,

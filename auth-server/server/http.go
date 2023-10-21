@@ -26,12 +26,6 @@ func cors(next http.Handler) http.Handler {
 	})
 }
 
-func initMiddleware(r *chi.Mux) {
-	r.Use(middleware.Logger)
-	r.Use(cors)
-	r.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
-}
-
 // HTTPServer is a wrapper around http.Server
 // additionally exposing *RequestHandler for closing resources
 type HTTPServer struct {
@@ -51,27 +45,29 @@ func (s *HTTPServer) Close(ctx context.Context) model.Errors {
 func NewHTTPServer(addr string) *HTTPServer {
 	cfg = config.New()
 	r := chi.NewRouter()
-	initMiddleware(r)
+	h := NewHTTPHandler(config.New())
 
-	handler := NewHTTPHandler(config.New())
-	setupRoutes(r, *handler)
+	defaultGroup := r.Group(nil)
+	defaultGroup.Use(middleware.Logger)
+	defaultGroup.Use(cors)
+	defaultGroup.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
+
+	defaultGroup.Get("/health", h.healthCheck)
+	defaultGroup.Get("/user", h.user)
+	defaultGroup.Get("/sessions", h.sessions)
+	defaultGroup.Post("/login", h.login)
+	defaultGroup.Post("/logout", h.logout)
+	defaultGroup.Post("/logout-all", h.logoutAll)
+	defaultGroup.Post("/register", h.registration)
+
+	wsGroup := r.Group(nil)
+	wsGroup.HandleFunc("/ws", h.websocket)
 
 	return &HTTPServer{
 		Server: http.Server{
 			Addr:    addr,
 			Handler: r,
 		},
-		handler: handler,
+		handler: h,
 	}
-}
-
-func setupRoutes(r chi.Router, h RequestHandler) {
-	r.Get("/health", h.healthCheck)
-	r.Get("/user", h.user)
-	r.Get("/sessions", h.sessions)
-	r.Post("/login", h.login)
-	r.Post("/logout", h.logout)
-	r.Post("/logout-all", h.logoutAll)
-	r.Post("/register", h.registration)
-	r.HandleFunc("/ws", h.websocket)
 }
