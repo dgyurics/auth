@@ -50,7 +50,8 @@ func (suite *HandlerTestSuite) Setup() {
 	}
 	suite.authService = service.NewAuthService(suite.userRepo, suite.eventRepo)
 	suite.sessionCache = &cache.MockSessionCache{
-		Sessions: make(map[string]string),
+		Sessions:    make(map[string]string),
+		SessionsSet: make(map[string]map[string]struct{}),
 	}
 	suite.sessionRepository = &repo.MockSessionRepository{
 		Sessions: []*model.Session{},

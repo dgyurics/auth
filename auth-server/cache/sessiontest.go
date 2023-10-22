@@ -13,12 +13,6 @@ type MockSessionCache struct {
 	SessionsSet map[string]map[string]struct{}
 }
 
-// Del deletes a session from the cache.
-func (s *MockSessionCache) Del(_ context.Context, key string) error {
-	delete(s.Sessions, key)
-	return nil
-}
-
 // Set sets a session in the cache.
 func (s *MockSessionCache) Set(_ context.Context, key string, value string, _ time.Duration) error {
 	s.Sessions[key] = value
@@ -32,6 +26,12 @@ func (s *MockSessionCache) Get(_ context.Context, key string) (string, error) {
 		return "", nil
 	}
 	return value, nil
+}
+
+// Del deletes a session from the cache.
+func (s *MockSessionCache) Del(_ context.Context, key string) error {
+	delete(s.Sessions, key)
+	return nil
 }
 
 func (s *MockSessionCache) SAdd(_ context.Context, key string, value string) error {
@@ -53,4 +53,8 @@ func (s *MockSessionCache) SMembers(_ context.Context, key string) ([]string, er
 		members = append(members, member)
 	}
 	return members, nil
+}
+
+func (s *MockSessionCache) SCard(_ context.Context, key string) (int64, error) {
+	return int64(len(s.SessionsSet[key])), nil
 }
