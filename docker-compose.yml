@@ -6,7 +6,7 @@ services:
     build:
       context: ./ui/
     ports:
-      - "3000:3000"
+      - "3001:3000"
     networks:
       - public-network
     deploy:
@@ -24,10 +24,11 @@ services:
       - "3000:80"
     depends_on:
       - auth
+      - secure
     networks:
       - public-network
-      - secure-network
-      - auth-network
+      - internal-one-network
+      - internal-two-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -39,13 +40,16 @@ services:
     image: auth
     build:
       context: ./auth-server/
+    ports:
+      - "8080:8080"
     env_file:
       - ./auth-server/.env
     depends_on:
       - postgres
       - redis
     networks:
-      - public-network
+      - internal-one-network
+      - private-network
     deploy:
       mode: replicated
       replicas: 3
@@ -60,7 +64,7 @@ services:
     build:
       context: ./secure-server/
     networks:
-      - secure-network
+      - internal-two-network
     deploy:
       mode: replicated
       replicas: 3
@@ -81,27 +85,30 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data/
     networks:
-      - public-network
+      - private-network
 
   redis:
     image: redis:6.2
     container_name: redis
     restart: "on-failure"
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes: 
       - redis:/data
     networks:
-      - public-network
+      - private-network
 
 networks:
   public-network:
     driver: bridge
     internal: false
-  secure-network:
+  internal-one-network:
     driver: bridge
     internal: true
-  auth-network:
+  internal-two-network:
+    driver: bridge
+    internal: true
+  private-network:
     driver: bridge
     internal: true
 

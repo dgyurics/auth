@@ -1,6 +1,4 @@
 PROJECT_NAME = auth
-AUTH_CONTAINER_NAME = auth-server
-SECURE_CONTAINER_NAME = secure-server
 
 .DEFAULT_GOAL := run
 
@@ -29,7 +27,7 @@ lint:
 # check for vulnerabilities in dependencies
 # requires go install golang.org/x/vuln/cmd/govulncheck@latest
 vulnerabilities:
-	govulncheck ./$(AUTH_CONTAINER_NAME)/...
+	govulncheck ./auth-server/...
 
 # start single docker container
 run-ui:
@@ -62,6 +60,10 @@ rebuild-redis:
 # stop docker containers which match the given name
 stop-containers:
 	docker kill $$(docker ps -q -f "name=$(container)")
+
+# stop all docker containers
+stop:
+	docker stop $$(docker ps -q)
 
 # follow service logs in real time
 logs:
