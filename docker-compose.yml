@@ -2,11 +2,10 @@ version: "3.9"
 
 services:
   ui:
-    image: ui
     build:
       context: ./ui/
     ports:
-      - "3001:3000"
+      - "3000:3000"
     networks:
       - public-network
     deploy:
@@ -17,11 +16,10 @@ services:
         window: 10s
 
   nginx:
-    image: nginx
     build:
       context: ./api-gateway/
     ports:
-      - "3000:80"
+      - "3001:80"
     depends_on:
       - auth
       - secure
@@ -36,14 +34,38 @@ services:
         max_attempts: 3
         window: 10s
 
+  # auth:
+  #   build:
+  #     context: ./auth-server/
+  #   ports:
+  #     - "8080:8080"
+  #   env_file:
+  #     - ./auth-server/.env
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - internal-one-network
+  #     - private-network
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 3
+  #     restart_policy:
+  #       condition: on-failure
+  #       delay: 5s
+  #       max_attempts: 3
+  #       window: 20s
+
   auth:
-    image: auth
     build:
       context: ./auth-server/
+      dockerfile: Dockerfile.dev
     ports:
       - "8080:8080"
     env_file:
       - ./auth-server/.env
+    volumes:
+      - ./auth-server/:/app
     depends_on:
       - postgres
       - redis
@@ -60,9 +82,10 @@ services:
         window: 20s
 
   secure:
-    image: secure
     build:
       context: ./secure-server/
+    ports:
+      - "9000:8080"
     networks:
       - internal-two-network
     deploy:
@@ -75,7 +98,6 @@ services:
         window: 20s
 
   postgres:
-    image: postgres
     build:
       context: ./auth-server/database/
     container_name: postgres

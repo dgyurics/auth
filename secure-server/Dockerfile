@@ -32,7 +32,7 @@ WORKDIR /app
 # Copy the binary to the production image from the builder stage.
 COPY --from=builder /app/server .
 
-EXPOSE 8081
+EXPOSE 8080
 
 # Run the web service on container startup.
 CMD ["./server"]

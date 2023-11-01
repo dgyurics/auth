@@ -67,4 +67,4 @@ stop:
 
 # follow service logs in real time
 logs:
-	docker compose logs -f $(service)
+	docker logs -f $(service)
