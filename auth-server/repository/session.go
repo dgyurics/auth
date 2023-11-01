@@ -58,7 +58,11 @@ func (r *sessionRepository) GetSessions(ctx context.Context, userID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if e := rows.Close(); e != nil {
+			log.Fatal(e)
+		}
+	}()
 	var sessions []*model.Session
 	for rows.Next() {
 		var session model.Session

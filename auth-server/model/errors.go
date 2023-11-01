@@ -2,6 +2,7 @@ package model
 
 import "fmt"
 
+// Errors is a custom type created to enforce a specific set of values
 type Errors []error
 
 func (errs Errors) Error() string {

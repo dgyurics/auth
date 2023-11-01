@@ -118,7 +118,9 @@ func (s *sessionService) FetchAll(ctx context.Context, sessionID string) ([]stri
 	for _, id := range sessionIDs {
 		if _, err := s.sessionCache.Get(ctx, id); err != nil {
 			// remove invalid session from set
-			s.sessionCache.SRem(ctx, userID.String(), id)
+			if err := s.sessionCache.SRem(ctx, userID.String(), id); err != nil {
+				log.Printf("error removing session %s for user %s: %v", id, userID.String(), err)
+			}
 		} else {
 			// Overwrite the current position in the slice with the valid session
 			sessionIDs[validCount] = id

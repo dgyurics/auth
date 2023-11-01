@@ -81,10 +81,12 @@ func (r *MockEventRepository) Close() error {
 	return nil
 }
 
+// MockSessionRepository is a mock implementation of the SessionRepository interface
 type MockSessionRepository struct {
 	Sessions []*model.Session
 }
 
+// CreateSession creates a new session
 func (r *MockSessionRepository) CreateSession(_ context.Context, session *model.Session) error {
 	for _, s := range r.Sessions {
 		if s.ID == session.ID {
@@ -95,6 +97,7 @@ func (r *MockSessionRepository) CreateSession(_ context.Context, session *model.
 	return nil
 }
 
+// RemoveSession removes a session
 func (r *MockSessionRepository) RemoveSession(_ context.Context, sessionID string) error {
 	for i, s := range r.Sessions {
 		if s.ID == sessionID {
@@ -105,7 +108,8 @@ func (r *MockSessionRepository) RemoveSession(_ context.Context, sessionID strin
 	return errors.New("session not found")
 }
 
-func (r *MockSessionRepository) GetSessions(ctx context.Context, userID uuid.UUID) ([]*model.Session, error) {
+// GetSessions gets all sessions for a user
+func (r *MockSessionRepository) GetSessions(_ context.Context, userID uuid.UUID) ([]*model.Session, error) {
 	var sessions []*model.Session
 	for _, s := range r.Sessions {
 		if s.UserID == userID {
@@ -115,6 +119,7 @@ func (r *MockSessionRepository) GetSessions(ctx context.Context, userID uuid.UUI
 	return sessions, nil
 }
 
+// RemoveSessions removes all sessions for a user
 func (r *MockSessionRepository) RemoveSessions(_ context.Context, userID uuid.UUID) error {
 	for i, s := range r.Sessions {
 		if s.UserID == userID {
@@ -124,6 +129,7 @@ func (r *MockSessionRepository) RemoveSessions(_ context.Context, userID uuid.UU
 	return nil
 }
 
+// Close no-op
 func (r *MockSessionRepository) Close() error {
 	return nil
 }

@@ -279,7 +279,11 @@ func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
-	defer c.Close()
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Printf("failed to close websocket connection: %s", err)
+		}
+	}()
 
 	// initialize a variable to store last delivered payload
 	var lastSessionVersion string
@@ -295,7 +299,9 @@ func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 		sessions, err := s.sessionService.FetchAll(r.Context(), cookie.Value)
 		if err != nil {
 			log.Printf("failed to fetch sessions: %s", err)
-			c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to fetch sessions"))
+			if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to fetch sessions")); err != nil {
+				log.Printf("failed to write close message: %s", err)
+			}
 			break
 		}
 
@@ -303,13 +309,17 @@ func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 		jsonData, err := json.Marshal(sessions)
 		if err != nil {
 			log.Printf("failed to marshal sessions: %s", err)
-			c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to marshal sessions"))
+			if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to marshal sessions")); err != nil {
+				log.Printf("failed to write close message: %s", err)
+			}
 			return
 		}
 
 		// when data changes, send new data to client
 		if lastSessionVersion != string(jsonData) {
-			c.WriteMessage(websocket.TextMessage, jsonData)
+			if err := c.WriteMessage(websocket.TextMessage, jsonData); err != nil {
+				log.Printf("failed to write message: %s", err)
+			}
 
 			// Update the last session version
 			lastSessionVersion = string(jsonData)

@@ -34,6 +34,7 @@ func (s *MockSessionCache) Del(_ context.Context, key string) error {
 	return nil
 }
 
+// SAdd adds a session to the user's sessions set.
 func (s *MockSessionCache) SAdd(_ context.Context, key string, value string) error {
 	if _, ok := s.SessionsSet[key]; !ok {
 		s.SessionsSet[key] = make(map[string]struct{})
@@ -42,11 +43,13 @@ func (s *MockSessionCache) SAdd(_ context.Context, key string, value string) err
 	return nil
 }
 
+// SRem removes a session from the user's sessions set.
 func (s *MockSessionCache) SRem(_ context.Context, key string, value string) error {
 	delete(s.SessionsSet[key], value)
 	return nil
 }
 
+// SMembers returns all sessions for a user.
 func (s *MockSessionCache) SMembers(_ context.Context, key string) ([]string, error) {
 	var members []string
 	for member := range s.SessionsSet[key] {
@@ -55,6 +58,7 @@ func (s *MockSessionCache) SMembers(_ context.Context, key string) ([]string, er
 	return members, nil
 }
 
+// SCard returns the number of sessions for a user.
 func (s *MockSessionCache) SCard(_ context.Context, key string) (int64, error) {
 	return int64(len(s.SessionsSet[key])), nil
 }
