@@ -20,6 +20,7 @@ func cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", cfg.Cors.AllowHeaders)
 		w.Header().Set("Access-Control-Allow-Methods", cfg.Cors.AllowMethods)
 		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -47,9 +48,13 @@ func NewHTTPServer(addr string) *HTTPServer {
 	r := chi.NewRouter()
 	h := NewHTTPHandler(config.New())
 
+	// middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Logger)
+	r.Use(cors)
+
+	// default
 	defaultGroup := r.Group(nil)
-	defaultGroup.Use(middleware.Logger)
-	defaultGroup.Use(cors)
 	defaultGroup.Use(middleware.Timeout(time.Duration(cfg.RequestTimeout) * time.Second))
 
 	defaultGroup.Get("/health", h.healthCheck)
@@ -60,6 +65,7 @@ func NewHTTPServer(addr string) *HTTPServer {
 	defaultGroup.Post("/logout-all", h.logoutAll)
 	defaultGroup.Post("/register", h.registration)
 
+	// websocket
 	wsGroup := r.Group(nil)
 	wsGroup.HandleFunc("/ws", h.websocket)
 
