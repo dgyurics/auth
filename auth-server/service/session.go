@@ -174,14 +174,17 @@ func generateSessionID() string {
 func (s *sessionService) newCookie(value string) *http.Cookie {
 	session := s.sessionConfig
 	return &http.Cookie{
-		Value:    value,
-		Name:     session.Name,
-		Domain:   session.Domain,
-		Path:     session.Path,
-		MaxAge:   session.MaxAge,
-		Secure:   session.Secure,
-		HttpOnly: session.HTTPOnly,
-		SameSite: mapSameSite(session.SameSite),
+		Value: value,
+		Name:  session.Name,
+		// Domain: session.Domain,
+		// Path:   session.Path,
+		Path: "/",
+		// MaxAge: session.MaxAge,
+		// Secure:   session.Secure,
+		Secure: true,
+		// HttpOnly: session.HTTPOnly,
+		// SameSite: mapSameSite(session.SameSite),
+		SameSite: http.SameSiteNoneMode,
 	}
 }
 
