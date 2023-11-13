@@ -1,18 +1,23 @@
-# use official node image
-FROM node:20
+# Builder stage
+FROM node:20 AS builder
 
-RUN mkdir -p /app
-
-# set working directory
 WORKDIR /app
 
-# copy project file
+COPY package*.json ./
+RUN npm ci
 COPY . .
-
-RUN npm install
 RUN npm run build
+
+# Final stage
+FROM node:20
+
+WORKDIR /app
+
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+ENV NODE_ENV=production
 
 EXPOSE 3000
 
-# start app
 CMD ["npm", "start"]
