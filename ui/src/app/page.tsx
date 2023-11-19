@@ -24,6 +24,7 @@ export default function Home() {
     try {
       const response = await fetch(`${process.env.API_URL}/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -31,6 +32,14 @@ export default function Home() {
       })
 
       if (response.ok) {
+        // debugging
+        await fetch(`${process.env.API_URL}/sessions`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
         router.push('/dashboard')
       } else {
         setError('Invalid username or password')
@@ -52,6 +61,8 @@ export default function Home() {
 
       if (response.ok) {
         router.push('/dashboard')
+      } else if (response.status === 409) {
+        setError('Username already exists')
       } else {
         setError('Invalid username or password')
       }

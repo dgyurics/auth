@@ -57,9 +57,19 @@ rebuild-postgres:
 rebuild-redis:
 	docker compose build --no-cache redis
 
-# stop docker containers which match the given name
-stop-containers:
-	docker kill $$(docker ps -q -f "name=$(container)")
+# stop single docker container
+stop-ui:
+	docker compose stop ui
+stop-nginx:
+	docker compose stop nginx
+stop-auth:
+	docker compose stop auth
+stop-secure:
+	docker compose stop secure
+stop-postgres:
+	docker compose stop postgres
+stop-redis:
+	docker compose stop redis
 
 # stop all docker containers
 stop:
