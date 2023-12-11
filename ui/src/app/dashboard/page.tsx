@@ -1,4 +1,23 @@
+'use client'
+
+import { useEffect } from "react";
+
 export default function Dashboard() {
+  useEffect(() => {
+    const websocketUrl = process.env.WS_URL
+    if (!websocketUrl) {
+      throw new Error('Websocket URL not found')
+    }
+    const newSocket = new WebSocket(websocketUrl)
+    newSocket.onopen = () => {
+      console.log('WebSocket connected')
+    }
+    newSocket.onmessage = (event) => {
+      const receivedMessage = event.data
+      console.log(receivedMessage)
+    }        
+  }, [])
+
   return (
     <main className="flex flex-col justify-center items-center h-screen">
       <h1 className="text-4xl">Dashboard</h1>
