@@ -48,7 +48,7 @@ func NewHTTPHandler(config config.Config) *RequestHandler {
 	// create websocket upgrader
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			// FIXME limit to same origin or cofing.Cors.AllowOrigin
+			// FIXME limit to same origin or config.Cors.AllowOrigin
 			return true
 		},
 	}
