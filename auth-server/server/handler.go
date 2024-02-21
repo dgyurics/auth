@@ -105,6 +105,8 @@ func (s *RequestHandler) registration(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *RequestHandler) login(w http.ResponseWriter, r *http.Request) {
+	// TODO return existing session if exists
+
 	// Parse request body
 	var user *model.User
 	if err := parseRequestBody(r, &user); err != nil {
@@ -265,11 +267,11 @@ func (s *RequestHandler) websocket(w http.ResponseWriter, r *http.Request) {
 	// verify session valid
 	cookie, err := s.extractSession(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	if cookie.Value == "" {
-		http.Error(w, "missing session cookie", http.StatusBadRequest)
+		http.Error(w, "missing session cookie", http.StatusUnauthorized)
 		return
 	}
 	if _, err := s.sessionService.Fetch(r.Context(), cookie.Value); err != nil {

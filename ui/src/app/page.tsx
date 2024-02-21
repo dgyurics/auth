@@ -20,6 +20,11 @@ export default function Home() {
     setError('')
   }
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    await handleLogin()
+  }
+
   const handleLogin = async () => {
     try {
       const response = await fetch(`${process.env.API_URL}/login`, {
@@ -32,14 +37,6 @@ export default function Home() {
       })
 
       if (response.ok) {
-        // debugging
-        await fetch(`${process.env.API_URL}/sessions`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
         router.push('/dashboard')
       } else {
         setError('Invalid username or password')
@@ -73,7 +70,7 @@ export default function Home() {
 
   return (
     <main className="flex justify-center items-center h-screen">
-      <form className="w-1/4">
+      <form className="w-1/4" onSubmit={handleSubmit}>
         <div className="mb-6">
           <input
             type="username"
@@ -103,8 +100,7 @@ export default function Home() {
         </div>
         <div className="flex justify-center space-x-4"> {/* Added space-x-4 for spacing */}
           <button
-            type="button"
-            onClick={() => handleLogin()}
+            type="submit"
             className="w-32 py-2 text-gray-600 border border-gray-600 hover:text-gray-400 hover:border-gray-400 focus:outline-none transition duration-300"
           >
             Login
